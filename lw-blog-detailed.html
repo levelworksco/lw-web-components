@@ -35,7 +35,10 @@
     ║      title, url, image, imageCaption,                       ║
     ║      summary,                                               ║
     ║      author, date, postType, categories[],                  ║
-    ║      body[]  → array of { type:'text'|'heading', text }     ║
+    ║      body[]  → array of block objects:                       ║
+    ║        { type: 'heading',   text }                           ║
+    ║        { type: 'paragraph', text }                           ║
+    ║        { type: 'image',     src, alt? }                      ║
     ║    }                                                        ║
     ╚══════════════════════════════════════════════════════════════╝
   -->
@@ -45,8 +48,8 @@
   ></post-detail>
 
   <script type="module">
-    import { LitElement, html, css }
-      from 'https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js';
+    import { LitElement, html, css, repeat }
+      from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 
     class PostDetail extends LitElement {
 
@@ -113,9 +116,9 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         .pd-container {
-          width:      100%;
-          max-width:  var(--pd-container-width, 720px);
-          margin:     var(--pd-container-margin, 0);
+          width:      var(--pd-container-width, 100%);
+          max-width:  var(--pd-container-max-width, 720px);
+          margin:     var(--pd-container-margin, 0 auto);
           background: var(--pd-container-background, transparent);
         }
 
@@ -239,31 +242,19 @@
         }
       `;
 
-      // Body is a flat array of strings.
-      // If a string is wrapped in **...** it renders as a heading.
-      // Otherwise it renders as a paragraph.
-      // Body is a flat array of strings. Three patterns:
-      //   **heading text**  → renders as a bold heading
-      //   ![https://...]    → renders as a full-width inline image
-      //   anything else     → renders as a paragraph
       _renderBody(body) {
-        if (!body || !body.length) return '';
-        return body.map(text => {
-          // heading: **text**
-          const headingMatch = text.match(/^\*\*(.+)\*\*$/);
-          if (headingMatch) {
-            return html`<div class="pd-heading">${headingMatch[1]}</div>`;
+        if (!body || !body.length) return null;
+        return repeat(body, (_, i) => i, block => {
+          if (block.type === 'heading') {
+            return html`<h2 class="pd-heading">${block.text}</h2>`;
           }
-          // inline image: ![url]
-          const imageMatch = text.match(/^!\[(.+)\]$/);
-          if (imageMatch) {
+          if (block.type === 'image') {
             return html`
               <div class="pd-body-image">
-                <img src="${imageMatch[1]}" alt="" />
+                <img src="${block.src}" alt="${block.alt ?? ''}" loading="lazy" />
               </div>`;
           }
-          // default: paragraph
-          return html`<p>${text}</p>`;
+          return html`<p>${block.text}</p>`;
         });
       }
 
@@ -280,11 +271,11 @@
           <div class="pd-container">
 
             <h1 class="pd-title">${title}</h1>
-            ${url ? html`<div class="pd-url">${url}</div>` : ''}
+            ${url ? html`<a class="pd-url" href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>` : ''}
 
             ${image ? html`
               <div class="pd-image-wrap">
-                <img src="${image}" alt="${title}" />
+                <img src="${image}" alt="${title}" loading="lazy" />
               </div>
               ${imageCaption ? html`<div class="pd-image-caption">${imageCaption}</div>` : ''}
             ` : ''}
@@ -343,44 +334,44 @@
         'Learner-Centered Methodology',
       ],
       body: [
-        '**Reflections from a Student Counsellor on Values, Purpose, and Project-Based Learning**',
-        'I did not come to the importance of Values Education through curriculum design or pedagogical theory. I came to it sitting across a small table from children who were already carrying labels far heavier than their schoolbags.',
-        // '![https://heartbrightlearning.org/cdn/shop/articles/123314_3f572197-d61b-49c8-a3f7-8432b2fa0165.jpg?v=1774084686&width=1500]',
-        'As a student counsellor in a school, I often met students after the system had reached a conclusion about them. They were sent to me with brief summaries—sometimes no more than a sentence long—that attempted to explain who they were. Rarely did those summaries come close to the truth.',
-        'One particular instance remains etched in my mind. Three students from Grades 2 and 3 were referred to me with identical descriptions: "the naughtiest and most disruptive child in the class." On paper, they appeared the same problem, requiring the same correction. In reality, their stories could not have been more different.',
-        'The first child was struggling with dyslexia. He could not follow what was happening in the classroom, and disruption had become his only way to mask confusion and preserve dignity. The second child was highly intelligent and completed his work far ahead of his peers. Bored and unstimulated for most of the period, he sought engagement in whatever form he could find. The third child simply could not read what was written on the blackboard—he had never been taught cursive handwriting, yet the classroom assumed he knew it.',
-        'None of these children were "naughty." They were unheard.',
-        'That moment marked a turning point for me. It revealed how quickly behavior is judged without understanding, and how easily children internalize these judgments as identity. More importantly, it exposed a deeper issue: when education focuses narrowly on performance and compliance, it neglects the values of empathy, fairness, and curiosity. And when values are absent, misunderstanding becomes the norm.',
-        '**Values Are Not an Add-On. They Are the Foundation.**',
-        'In the counselling room, academic achievement rarely took center stage. What emerged instead were struggles with self-worth, belonging, frustration, and fear—fear of failure, of being misunderstood, of not being "enough."',
-        'What became clear to me over time was this: values were being assumed, not taught. Students were expected to be resilient without learning how to handle failure, collaborative without learning how to navigate differences, and confident without learning how to understand themselves.',
-        'Values education is often misunderstood as moral instruction—telling children what is right and wrong. But values are not absorbed through lectures. They are shaped through experience, through how systems respond to difference, and through whether adults choose curiosity over judgment.',
-        'When the three children labeled "disruptive" were finally understood, something shifted. The problem was no longer them; it was the environment. And that realization stayed with me: behavior is communication, and values determine whether we listen.',
-        '**The Quiet Crisis of Purpose in Young Learners**',
-        'As I continued my work as a counsellor, another pattern emerged—one that was less visible but equally concerning. Many students, even those who were academically successful, struggled with a deep sense of disconnection.',
-        'They followed instructions, completed assignments, and met expectations. Yet beneath the surface was a persistent question: Why am I doing all this?',
-        'This lack of purpose manifested in different ways—anxiety, apathy, perfectionism, or quiet withdrawal. Without a sense of meaning, effort felt exhausting rather than energizing. Learning became transactional, reduced to marks, rankings, and approval.',
-        'Purpose, I realized, is not something students are supposed to "figure out later." It begins early, with the experience of being seen, valued, and capable of contributing. Purpose grows when learners feel their strengths matter and their differences are not deficits.',
-        '**From Intervention to Prevention**',
-        'Over time, I saw that many of the challenges I was addressing reactively in the counselling room could be addressed proactively in the classroom. If students were misunderstood, disengaged, or disconnected, it was often because the learning environment left little room for individuality, agency, or meaning.',
-        'I began to ask a different question: What kind of learning experiences naturally cultivate values and purpose, rather than attempting to repair their absence later? This question led me to Project-Based Learning (PBL).',
-        '**How Project-Based Learning Creates Space for Values**',
-        'I first encountered PBL not as a formal classroom strategy, but as an out-of-school learning experience. What struck me immediately was not the academic output, but the transformation in relationships.',
-        "I observed children who initially struggled to get along—children who clashed, avoided each other, or competed for dominance—slowly begin to collaborate. Over the course of the project, they learned to negotiate roles, rely on each other's strengths, and work through disagreements. By the end, not only had they completed the project, but they had formed bonds that endured long after. Even five years later, many of those children remain close friends.",
-        'This experience reinforced something I deeply believe: values emerge most powerfully when children are given shared purpose and real responsibility. In PBL environments, values such as empathy, respect, accountability, and perseverance are not taught as concepts—they are practiced daily.',
-        '**The Balance of Freedom and Structure**',
-        'However, I also learned that PBL is not simply about giving students freedom. Without thoughtful design, freedom can quickly become chaos or exclusion. What makes PBL effective is the careful balance between freedom and structure. Students need autonomy, but they also need scaffolding.',
-        'In successful PBL environments, educators learn to involve every student based on their strengths—not just those who are outspoken or academically confident. The quiet thinker, the hands-on builder, the natural organizer, the storyteller—all have a place.',
-        '**Purpose as a Source of Resilience**',
-        'One of the most striking insights from my counselling work was this: students who had even a fragile sense of purpose coped better with hardships. Purpose acted as an anchor. It allowed students to view setbacks as part of growth rather than evidence of failure.',
-        'PBL supports this by shifting the focus from perfection to progress. Mistakes are not endpoints; they are data. Reflection becomes as important as results. Students learn that learning itself is a process—messy, iterative, and deeply human.',
-        '**Redefining Success in Education**',
-        'My experiences as a student counsellor fundamentally changed how I define success in education. True success lies in helping learners develop an inner compass—one guided by values, oriented by purpose, and strengthened through meaningful experience.',
-        'When education neglects these elements, counselling rooms fill with students carrying unspoken distress. When education embraces them, those conversations change. They move from crisis management to exploration, from repair to growth.',
-        '**Education as Preventive Care**',
-        'In healthcare, prevention is more powerful than intervention. The same principle applies to education. Teaching values, nurturing purpose, and adopting methodologies like Project-Based Learning is not an enrichment initiative. It is preventive care for emotional, social, and ethical wellbeing.',
-        'As a student counsellor, I have seen what happens when these foundations are missing. As an educator and advocate for purposeful learning, I have also seen what becomes possible when they are present.',
-        'The choice before us is not whether we have time to teach values and purpose—but whether we can afford the cost of ignoring them. Because when education teaches what truly matters, fewer children need to be "fixed." Instead, they are finally understood.',
+        { type: 'heading',   text: 'Reflections from a Student Counsellor on Values, Purpose, and Project-Based Learning' },
+        { type: 'paragraph', text: 'I did not come to the importance of Values Education through curriculum design or pedagogical theory. I came to it sitting across a small table from children who were already carrying labels far heavier than their schoolbags.' },
+        { type: 'image',     src: 'https://heartbrightlearning.org/cdn/shop/articles/123314_3f572197-d61b-49c8-a3f7-8432b2fa0165.jpg?v=1774084686&width=1500' },
+        { type: 'paragraph', text: 'As a student counsellor in a school, I often met students after the system had reached a conclusion about them. They were sent to me with brief summaries—sometimes no more than a sentence long—that attempted to explain who they were. Rarely did those summaries come close to the truth.' },
+        { type: 'paragraph', text: 'One particular instance remains etched in my mind. Three students from Grades 2 and 3 were referred to me with identical descriptions: "the naughtiest and most disruptive child in the class." On paper, they appeared the same problem, requiring the same correction. In reality, their stories could not have been more different.' },
+        { type: 'paragraph', text: 'The first child was struggling with dyslexia. He could not follow what was happening in the classroom, and disruption had become his only way to mask confusion and preserve dignity. The second child was highly intelligent and completed his work far ahead of his peers. Bored and unstimulated for most of the period, he sought engagement in whatever form he could find. The third child simply could not read what was written on the blackboard—he had never been taught cursive handwriting, yet the classroom assumed he knew it.' },
+        { type: 'paragraph', text: 'None of these children were "naughty." They were unheard.' },
+        { type: 'paragraph', text: 'That moment marked a turning point for me. It revealed how quickly behavior is judged without understanding, and how easily children internalize these judgments as identity. More importantly, it exposed a deeper issue: when education focuses narrowly on performance and compliance, it neglects the values of empathy, fairness, and curiosity. And when values are absent, misunderstanding becomes the norm.' },
+        { type: 'heading',   text: 'Values Are Not an Add-On. They Are the Foundation.' },
+        { type: 'paragraph', text: 'In the counselling room, academic achievement rarely took center stage. What emerged instead were struggles with self-worth, belonging, frustration, and fear—fear of failure, of being misunderstood, of not being "enough."' },
+        { type: 'paragraph', text: 'What became clear to me over time was this: values were being assumed, not taught. Students were expected to be resilient without learning how to handle failure, collaborative without learning how to navigate differences, and confident without learning how to understand themselves.' },
+        { type: 'paragraph', text: 'Values education is often misunderstood as moral instruction—telling children what is right and wrong. But values are not absorbed through lectures. They are shaped through experience, through how systems respond to difference, and through whether adults choose curiosity over judgment.' },
+        { type: 'paragraph', text: 'When the three children labeled "disruptive" were finally understood, something shifted. The problem was no longer them; it was the environment. And that realization stayed with me: behavior is communication, and values determine whether we listen.' },
+        { type: 'heading',   text: 'The Quiet Crisis of Purpose in Young Learners' },
+        { type: 'paragraph', text: 'As I continued my work as a counsellor, another pattern emerged—one that was less visible but equally concerning. Many students, even those who were academically successful, struggled with a deep sense of disconnection.' },
+        { type: 'paragraph', text: 'They followed instructions, completed assignments, and met expectations. Yet beneath the surface was a persistent question: Why am I doing all this?' },
+        { type: 'paragraph', text: 'This lack of purpose manifested in different ways—anxiety, apathy, perfectionism, or quiet withdrawal. Without a sense of meaning, effort felt exhausting rather than energizing. Learning became transactional, reduced to marks, rankings, and approval.' },
+        { type: 'paragraph', text: 'Purpose, I realized, is not something students are supposed to "figure out later." It begins early, with the experience of being seen, valued, and capable of contributing. Purpose grows when learners feel their strengths matter and their differences are not deficits.' },
+        { type: 'heading',   text: 'From Intervention to Prevention' },
+        { type: 'paragraph', text: 'Over time, I saw that many of the challenges I was addressing reactively in the counselling room could be addressed proactively in the classroom. If students were misunderstood, disengaged, or disconnected, it was often because the learning environment left little room for individuality, agency, or meaning.' },
+        { type: 'paragraph', text: 'I began to ask a different question: What kind of learning experiences naturally cultivate values and purpose, rather than attempting to repair their absence later? This question led me to Project-Based Learning (PBL).' },
+        { type: 'heading',   text: 'How Project-Based Learning Creates Space for Values' },
+        { type: 'paragraph', text: 'I first encountered PBL not as a formal classroom strategy, but as an out-of-school learning experience. What struck me immediately was not the academic output, but the transformation in relationships.' },
+        { type: 'paragraph', text: "I observed children who initially struggled to get along—children who clashed, avoided each other, or competed for dominance—slowly begin to collaborate. Over the course of the project, they learned to negotiate roles, rely on each other's strengths, and work through disagreements. By the end, not only had they completed the project, but they had formed bonds that endured long after. Even five years later, many of those children remain close friends." },
+        { type: 'paragraph', text: 'This experience reinforced something I deeply believe: values emerge most powerfully when children are given shared purpose and real responsibility. In PBL environments, values such as empathy, respect, accountability, and perseverance are not taught as concepts—they are practiced daily.' },
+        { type: 'heading',   text: 'The Balance of Freedom and Structure' },
+        { type: 'paragraph', text: 'However, I also learned that PBL is not simply about giving students freedom. Without thoughtful design, freedom can quickly become chaos or exclusion. What makes PBL effective is the careful balance between freedom and structure. Students need autonomy, but they also need scaffolding.' },
+        { type: 'paragraph', text: 'In successful PBL environments, educators learn to involve every student based on their strengths—not just those who are outspoken or academically confident. The quiet thinker, the hands-on builder, the natural organizer, the storyteller—all have a place.' },
+        { type: 'heading',   text: 'Purpose as a Source of Resilience' },
+        { type: 'paragraph', text: 'One of the most striking insights from my counselling work was this: students who had even a fragile sense of purpose coped better with hardships. Purpose acted as an anchor. It allowed students to view setbacks as part of growth rather than evidence of failure.' },
+        { type: 'paragraph', text: 'PBL supports this by shifting the focus from perfection to progress. Mistakes are not endpoints; they are data. Reflection becomes as important as results. Students learn that learning itself is a process—messy, iterative, and deeply human.' },
+        { type: 'heading',   text: 'Redefining Success in Education' },
+        { type: 'paragraph', text: 'My experiences as a student counsellor fundamentally changed how I define success in education. True success lies in helping learners develop an inner compass—one guided by values, oriented by purpose, and strengthened through meaningful experience.' },
+        { type: 'paragraph', text: 'When education neglects these elements, counselling rooms fill with students carrying unspoken distress. When education embraces them, those conversations change. They move from crisis management to exploration, from repair to growth.' },
+        { type: 'heading',   text: 'Education as Preventive Care' },
+        { type: 'paragraph', text: 'In healthcare, prevention is more powerful than intervention. The same principle applies to education. Teaching values, nurturing purpose, and adopting methodologies like Project-Based Learning is not an enrichment initiative. It is preventive care for emotional, social, and ethical wellbeing.' },
+        { type: 'paragraph', text: 'As a student counsellor, I have seen what happens when these foundations are missing. As an educator and advocate for purposeful learning, I have also seen what becomes possible when they are present.' },
+        { type: 'paragraph', text: 'The choice before us is not whether we have time to teach values and purpose—but whether we can afford the cost of ignoring them. Because when education teaches what truly matters, fewer children need to be "fixed." Instead, they are finally understood.' },
       ],
     };
   </script>
