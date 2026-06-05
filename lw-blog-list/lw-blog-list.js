@@ -1,11 +1,11 @@
 import { LitElement, html, css, repeat }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
-import './post-item.js';
+import '../lw-blog-list-item/lw-blog-list-item.js';
 
 // ─────────────────────────────────────────────────────────────
-// COMPONENT: <post-list>
+// COMPONENT: <lw-blog-list>
 // Single tag the user places. Supports list/grid toggle.
-// Uses <post-item> internally (imported from ./post-item.js).
+// Uses <lw-blog-list-item> internally.
 //
 // ATTRIBUTES → CSS vars (--pl-<name>):
 //   container-width, container-max-width, container-padding, container-background
@@ -26,7 +26,7 @@ import './post-item.js';
 //   list-label (attribute)   — header text
 //   default-view (attribute) — 'list' | 'grid'
 // ─────────────────────────────────────────────────────────────
-export class PostList extends LitElement {
+export class LwBlogList extends LitElement {
 
   static properties = {
     posts:       { type: Array   },
@@ -252,10 +252,10 @@ export class PostList extends LitElement {
             this.posts,
             post => post.id,
             (post) => html`
-              <post-item
+              <lw-blog-list-item
                 .post=${post}
                 .view=${this._view}
-              ></post-item>
+              ></lw-blog-list-item>
             `
           );
 
@@ -299,4 +299,4 @@ export class PostList extends LitElement {
   }
 }
 
-customElements.define('post-list', PostList);
+customElements.define('lw-blog-list', LwBlogList);

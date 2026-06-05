@@ -2,11 +2,11 @@ import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 
 // ─────────────────────────────────────────────────────────────
-// COMPONENT: <post-item>
+// COMPONENT: <lw-blog-list-item>
 // Renders one post in list OR grid mode.
-// view prop is passed down from <post-list>.
+// view prop is passed down from <lw-blog-list>.
 // ─────────────────────────────────────────────────────────────
-export class PostItem extends LitElement {
+export class LwBlogListItem extends LitElement {
 
   static properties = {
     post: { type: Object },
@@ -206,4 +206,4 @@ export class PostItem extends LitElement {
   }
 }
 
-customElements.define('post-item', PostItem);
+customElements.define('lw-blog-list-item', LwBlogListItem);
