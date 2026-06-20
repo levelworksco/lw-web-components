@@ -26,9 +26,9 @@ export class LwBlogListItem extends LitElement {
     ══════════════════════════════ */
     .list-row {
       display: flex;
-      gap: 1rem;
+      gap: 1.25rem;
       align-items: flex-start;
-      padding: var(--pl-card-padding, 1.1rem 0);
+      padding: var(--pl-card-padding, 1.6rem 0);
       border-bottom: 1px solid var(--pl-card-divider, #e5e5e5);
     }
     :host(:last-child) .list-row { border-bottom: none; }
@@ -36,7 +36,7 @@ export class LwBlogListItem extends LitElement {
     .list-content { flex: 1; min-width: 0; }
 
     .list-title {
-      font-size:   var(--pl-title-font-size,   1rem);
+      font-size:   var(--pl-title-font-size,   1.15rem);
       font-weight: var(--pl-title-font-weight, 700);
       color:       var(--pl-title-color,       #111);
       line-height: 1.3;
@@ -48,7 +48,7 @@ export class LwBlogListItem extends LitElement {
     .list-title:hover { color: var(--pl-title-hover-color, #555); }
 
     .list-excerpt {
-      font-size:   var(--pl-excerpt-font-size, 0.84rem);
+      font-size:   var(--pl-excerpt-font-size, 13px);
       color:       var(--pl-excerpt-color,     #444);
       line-height: 1.65;
       margin-bottom: 0.5rem;
@@ -63,15 +63,15 @@ export class LwBlogListItem extends LitElement {
       align-items: center;
       gap: 0.3rem;
       flex-wrap: wrap;
-      font-size: var(--pl-meta-font-size, 0.72rem);
+      font-size: var(--pl-meta-font-size, 12px);
       color:     var(--pl-meta-color,     #999);
     }
 
     .list-image {
-      width:         var(--pl-image-width,  130px);
-      height:        var(--pl-image-height, 90px);
+      width:         var(--pl-image-width,  145px);
+      height:        var(--pl-image-height, 110px);
       flex-shrink:   0;
-      border-radius: var(--pl-image-border-radius, 4px);
+      border-radius: var(--pl-image-border-radius, 8px);
       overflow:      hidden;
       background:    #ddd;
     }
@@ -84,15 +84,17 @@ export class LwBlogListItem extends LitElement {
       display: flex;
       flex-direction: column;
       background: #fff;
-      border-radius: var(--pl-grid-card-radius, 6px);
-      overflow: hidden;
+      border-radius: var(--pl-grid-card-radius, 12px);
       height: 100%;
+      border-bottom: 1px solid var(--pl-card-divider, #e5e5e5);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
     }
 
     .grid-image {
       width: 100%;
       aspect-ratio: 16/10;
       overflow: hidden;
+      border-radius: var(--pl-grid-card-radius, 12px) var(--pl-grid-card-radius, 12px) 0 0;
       background: #ddd;
       flex-shrink: 0;
     }
@@ -131,18 +133,65 @@ export class LwBlogListItem extends LitElement {
 
     .grid-meta {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 0.3rem;
-      flex-wrap: wrap;
-      font-size: var(--pl-meta-font-size, 0.68rem);
+      font-size: var(--pl-meta-font-size, 12px);
       color:     var(--pl-meta-color,     #999);
       margin-top: auto;
     }
 
+    .grid-meta-author-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .grid-meta-date-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .grid-meta-category {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 5px;
+      background: var(--pl-category-bg, #fde8d4);
+      color: var(--pl-category-color, #e07630);
+      font-weight: 500;
+      font-size: 12px;
+      white-space: nowrap;
+      align-self: flex-start;
+    }
+
     /* shared meta pieces */
-    .meta-author   { color: var(--pl-author-color,   #999); font-weight: 400; }
+    .meta-author   { color: var(--pl-author-color, #444); font-weight: 500; }
     .meta-dot      { color: #ccc; }
-    .meta-category { color: var(--pl-category-color, #999); font-weight: 400; }
+    .meta-category {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 5px;
+      background: var(--pl-category-bg, #fde8d4);
+      color: var(--pl-category-color, #e07630);
+      font-weight: 500;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .meta-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
 
     .image-placeholder {
       width:100%; height:100%; background:#e8e4df;
@@ -156,13 +205,30 @@ export class LwBlogListItem extends LitElement {
 
   constructor() { super(); this.post = {}; this.view = 'list'; }
 
-  _meta(author, date, category) {
+  _gridMeta(author, avatar, date, readTime, category) {
     return html`
-      <span class="meta-author">${author}</span>
-      <span class="meta-dot">•</span>
-      <span>${date}</span>
-      <span class="meta-dot">•</span>
-      <span class="meta-category">${category}</span>
+      <div class="grid-meta-author-row">
+        ${avatar ? html`<img class="meta-avatar" src="${avatar}" alt="${author}" />` : ''}
+        <span class="meta-author">${author}</span>
+      </div>
+      <div class="grid-meta-date-row">
+        <span>${date}</span>
+        ${readTime ? html`<span class="meta-dot">•</span><span>${readTime}</span>` : ''}
+      </div>
+      ${category ? html`<span class="grid-meta-category">${category}</span>` : ''}
+    `;
+  }
+
+  _meta(author, avatar, date, readTime, category) {
+    return html`
+      <div class="meta-row">
+        ${avatar ? html`<img class="meta-avatar" src="${avatar}" alt="${author}" />` : ''}
+        <span class="meta-author">${author}</span>
+        <span class="meta-dot">•</span>
+        <span>${date}</span>
+        ${readTime ? html`<span class="meta-dot">•</span><span>${readTime}</span>` : ''}
+        ${category ? html`<span class="meta-dot">•</span><span class="meta-category">${category}</span>` : ''}
+      </div>
     `;
   }
 
@@ -171,7 +237,9 @@ export class LwBlogListItem extends LitElement {
       title    = '',
       excerpt  = '',
       author   = '',
+      avatar   = '',
       date     = '',
+      readTime = '',
       category = '',
       image,
     } = this.post;
@@ -186,7 +254,7 @@ export class LwBlogListItem extends LitElement {
           <div class="grid-body">
             <div class="grid-title">${title}</div>
             <div class="grid-excerpt">${excerpt}</div>
-            <div class="grid-meta">${this._meta(author, date, category)}</div>
+            <div class="grid-meta">${this._gridMeta(author, avatar, date, readTime, category)}</div>
           </div>
         </div>
       `;
@@ -198,7 +266,7 @@ export class LwBlogListItem extends LitElement {
         <div class="list-content">
           <h3 class="list-title">${title}</h3>
           <div class="list-excerpt">${excerpt}</div>
-          <div class="list-meta">${this._meta(author, date, category)}</div>
+          <div class="list-meta">${this._meta(author, avatar, date, readTime, category)}</div>
         </div>
         <div class="list-image">${img}</div>
       </div>

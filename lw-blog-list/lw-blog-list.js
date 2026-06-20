@@ -4,38 +4,47 @@ import '../lw-blog-list-item/lw-blog-list-item.js';
 
 // ─────────────────────────────────────────────────────────────
 // COMPONENT: <lw-blog-list>
-// Single tag the user places. Supports list/grid toggle.
-// Uses <lw-blog-list-item> internally.
+// Supports list/grid toggle and sort dropdown.
 //
-// ATTRIBUTES → CSS vars (--pl-<name>):
-//   container-width, container-max-width, container-padding, container-background
-//   container-border-radius, container-box-shadow
-//   card-padding, card-divider, grid-card-radius, grid-columns
-//   title-color, title-font-size, title-font-weight,
-//   title-font-family, title-hover-color
-//   excerpt-color, excerpt-font-size
-//   meta-color, meta-font-size, author-color, category-color
-//   image-width, image-height, image-border-radius
-//   header-border-color, header-font-size
-//   toggle-active-color, toggle-inactive-color
-//   css-vars  →  freeform "key:val; key:val"
+// ATTRIBUTES:
+//   total-count  (Number)  — total available items (for "X results from Y items")
+//   loading      (Boolean) — show loading state
+//   default-view (String)  — 'list' | 'grid'
+//   default-sort (String)  — initial sort key (see SORT_OPTIONS)
+//   + all --pl-* CSS var attributes (unchanged)
 //
 // DATA:
-//   posts      (JS property) — array of post objects
-//   loading    (attribute)   — show loading state
-//   list-label (attribute)   — header text
-//   default-view (attribute) — 'list' | 'grid'
+//   posts (JS property) — array of post objects
 // ─────────────────────────────────────────────────────────────
+
+const SORT_OPTIONS = [
+  { value: 'default',   label: 'Default'       },
+  { value: 'newest',    label: 'Newest First'   },
+  { value: 'oldest',    label: 'Oldest First'   },
+  { value: 'title-az',  label: 'Title (A–Z)'    },
+  { value: 'title-za',  label: 'Title (Z–A)'    },
+  { value: 'author-az', label: 'Author (A–Z)'   },
+  { value: 'author-za', label: 'Author (Z–A)'   },
+  { value: 'longest',   label: 'Longest First'  },
+  { value: 'shortest',  label: 'Shortest First' },
+];
+
 export class LwBlogList extends LitElement {
 
   static properties = {
     posts:       { type: Array   },
     loading:     { type: Boolean },
-    listLabel:   { attribute: 'list-label'    },
+    totalCount:  { attribute: 'total-count',  type: Number },
     defaultView: { attribute: 'default-view'  },
+    defaultSort: { attribute: 'default-sort'  },
+
+    categories: { type: Array },
 
     // internal state
-    _view: { state: true },
+    _view:            { state: true },
+    _sort:            { state: true },
+    _sortOpen:        { state: true },
+    _activeCategory:  { state: true },
 
     // container
     containerWidth:        { attribute: 'container-width'         },
@@ -68,8 +77,8 @@ export class LwBlogList extends LitElement {
     imageHeight:       { attribute: 'image-height'        },
     imageBorderRadius: { attribute: 'image-border-radius' },
     // header
-    headerBorderColor:  { attribute: 'header-border-color'  },
-    headerFontSize:     { attribute: 'header-font-size'     },
+    headerBorderColor: { attribute: 'header-border-color' },
+    headerFontSize:    { attribute: 'header-font-size'    },
     // toggle
     toggleActiveColor:   { attribute: 'toggle-active-color'   },
     toggleInactiveColor: { attribute: 'toggle-inactive-color' },
@@ -80,9 +89,8 @@ export class LwBlogList extends LitElement {
   attributeChangedCallback(name, _old, value) {
     super.attributeChangedCallback?.(name, _old, value);
 
-    if (name === 'default-view') {
-      this._view = value === 'grid' ? 'grid' : 'list';
-    }
+    if (name === 'default-view') this._view = value === 'grid' ? 'grid' : 'list';
+    if (name === 'default-sort') this._sort = value || 'newest';
 
     const cssAttrs = [
       'container-width', 'container-max-width', 'container-padding', 'container-background',
@@ -96,55 +104,108 @@ export class LwBlogList extends LitElement {
       'header-border-color', 'header-font-size',
       'toggle-active-color', 'toggle-inactive-color',
     ];
-
-    if (cssAttrs.includes(name)) {
-      this.style.setProperty(`--pl-${name}`, value);
-    }
+    if (cssAttrs.includes(name)) this.style.setProperty(`--pl-${name}`, value);
 
     if (name === 'css-vars' && value) {
       value.split(';').forEach(pair => {
         const [k, ...rest] = pair.split(':');
-        if (k && rest.length) {
-          this.style.setProperty(k.trim(), rest.join(':').trim());
-        }
+        if (k && rest.length) this.style.setProperty(k.trim(), rest.join(':').trim());
       });
     }
   }
 
   constructor() {
     super();
-    this.posts       = [];
-    this.loading     = false;
-    this.listLabel   = 'Latest Posts';
-    this.defaultView = 'list';
-    this._view       = 'list';
+    this.posts           = [];
+    this.categories      = [];
+    this.loading         = false;
+    this.totalCount      = 0;
+    this.defaultView     = 'list';
+    this.defaultSort     = 'newest';
+    this._view           = 'list';
+    this._sort           = 'newest';
+    this._sortOpen       = false;
+    this._closeSort      = null;
+    this._activeCategory = 'all';
   }
 
+  _pickCategory(value) {
+    this._activeCategory = value;
+    this.dispatchEvent(new CustomEvent('lw-category-change', { detail: { category: value }, bubbles: true, composed: true }));
+  }
+
+  // ── Sort ────────────────────────────────────────────────────
+  get _sortedPosts() {
+    const posts = [...this.posts];
+    switch (this._sort) {
+      case 'newest':    return posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+      case 'oldest':    return posts.sort((a, b) => new Date(a.date) - new Date(b.date));
+      case 'title-az':  return posts.sort((a, b) => (a.title  || '').localeCompare(b.title  || ''));
+      case 'title-za':  return posts.sort((a, b) => (b.title  || '').localeCompare(a.title  || ''));
+      case 'author-az': return posts.sort((a, b) => (a.author || '').localeCompare(b.author || ''));
+      case 'author-za': return posts.sort((a, b) => (b.author || '').localeCompare(a.author || ''));
+      case 'longest':   return posts.sort((a, b) => (b.excerpt?.length || 0) - (a.excerpt?.length || 0));
+      case 'shortest':  return posts.sort((a, b) => (a.excerpt?.length || 0) - (b.excerpt?.length || 0));
+      default:          return posts;
+    }
+  }
+
+  get _sortLabel() {
+    return SORT_OPTIONS.find(o => o.value === this._sort)?.label ?? 'Sort';
+  }
+
+  _toggleSortMenu(e) {
+    e.stopPropagation();
+    this._sortOpen = !this._sortOpen;
+
+    if (this._sortOpen) {
+      this._closeSort = () => { this._sortOpen = false; };
+      setTimeout(() => document.addEventListener('click', this._closeSort), 0);
+    } else {
+      document.removeEventListener('click', this._closeSort);
+    }
+  }
+
+  _pickSort(value) {
+    this._sort     = value;
+    this._sortOpen = false;
+    document.removeEventListener('click', this._closeSort);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('click', this._closeSort);
+  }
+
+  // ── View toggle ─────────────────────────────────────────────
   _setView(v) { this._view = v; }
 
-  // ── icon SVGs ──────────────────────────────────────────────
+  // ── Icon SVGs ───────────────────────────────────────────────
   _listIcon(active) {
-    const color = active
-      ? 'var(--pl-toggle-active-color, #f58220)'
-      : 'var(--pl-toggle-inactive-color, #bbb)';
+    const c = active ? 'var(--pl-toggle-active-color,#595959)' : 'var(--pl-toggle-inactive-color,#bbb)';
     return html`
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:block">
-        <rect x="1" y="2"  width="16" height="3" rx="1" fill="${color}"/>
-        <rect x="1" y="7"  width="16" height="3" rx="1" fill="${color}"/>
-        <rect x="1" y="12" width="16" height="3" rx="1" fill="${color}"/>
+        <rect x="1" y="2"  width="16" height="3" rx="1" fill="${c}"/>
+        <rect x="1" y="7"  width="16" height="3" rx="1" fill="${c}"/>
+        <rect x="1" y="12" width="16" height="3" rx="1" fill="${c}"/>
       </svg>`;
   }
 
   _gridIcon(active) {
-    const color = active
-      ? 'var(--pl-toggle-active-color, #f58220)'
-      : 'var(--pl-toggle-inactive-color, #bbb)';
+    const c = active ? 'var(--pl-toggle-active-color,#595959)' : 'var(--pl-toggle-inactive-color,#bbb)';
     return html`
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:block">
-        <rect x="1"  y="1"  width="7" height="7" rx="1.5" fill="${color}"/>
-        <rect x="10" y="1"  width="7" height="7" rx="1.5" fill="${color}"/>
-        <rect x="1"  y="10" width="7" height="7" rx="1.5" fill="${color}"/>
-        <rect x="10" y="10" width="7" height="7" rx="1.5" fill="${color}"/>
+        <rect x="1"  y="1"  width="7" height="7" rx="1.5" fill="${c}"/>
+        <rect x="10" y="1"  width="7" height="7" rx="1.5" fill="${c}"/>
+        <rect x="1"  y="10" width="7" height="7" rx="1.5" fill="${c}"/>
+        <rect x="10" y="10" width="7" height="7" rx="1.5" fill="${c}"/>
+      </svg>`;
+  }
+
+  _chevronIcon() {
+    return html`
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="display:block;flex-shrink:0">
+        <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
   }
 
@@ -156,40 +217,95 @@ export class LwBlogList extends LitElement {
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .pl-container {
-      width:         var(--pl-container-width, 100%);
-      max-width:     var(--pl-container-max-width, 720px);
-      margin:        0 auto;
-      padding:       var(--pl-container-padding, 0 1.5rem);
-      background:    var(--pl-container-background, #ffffff);
-      border-radius: var(--pl-container-border-radius, 6px);
-      box-shadow:    var(--pl-container-box-shadow, 0 1px 8px rgba(0,0,0,0.07));
+    .pl-outer {
+      display: flex;
+      align-items: flex-start;
+      gap: 3rem;
+      width: 100%;
     }
 
-    /* header row: label left, toggle icons right */
+    .pl-container {
+      flex: 1;
+      min-width: 0;
+      width:         var(--pl-container-width, 100%);
+      max-width:     var(--pl-container-max-width, none);
+      padding:       var(--pl-container-padding, 0);
+      background:    var(--pl-container-background, #ffffff);
+      border-radius: var(--pl-container-border-radius, 0);
+      box-shadow:    var(--pl-container-box-shadow, none);
+    }
+
+    /* ── Sidebar ── */
+    .pl-sidebar {
+      width: 180px;
+      flex-shrink: 0;
+      padding-top: 0.6rem;
+    }
+
+    .pl-sidebar-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 1rem;
+    }
+
+    .pl-sidebar-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .pl-sidebar-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 0.38rem 0;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.8rem;
+      color: #888;
+      cursor: pointer;
+      transition: color 0.15s;
+      line-height: 1.4;
+    }
+    .pl-sidebar-item:hover { color: #444; }
+    .pl-sidebar-item.active { color: #e07630; font-weight: 600; }
+
+    .pl-sidebar-count {
+      color: inherit;
+    }
+
+    /* ── Header ── */
     .pl-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1.1rem 0 0.6rem;
+      padding: 1rem 0 0.75rem;
       border-bottom: 1px solid var(--pl-header-border-color, #e0e0e0);
+      gap: 0.75rem;
     }
 
-    .pl-header h2 {
-      font-family:    'Source Sans 3', sans-serif;
-      font-size:      var(--pl-header-font-size, 0.72rem);
-      font-weight:    700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #222;
-      margin: 0;
+    .pl-result-count {
+      font-size: var(--pl-header-font-size, 0.8rem);
+      color: #555;
+      font-weight: 400;
+      white-space: nowrap;
     }
 
-    /* toggle buttons */
+    .pl-header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    /* ── Toggle buttons ── */
     .pl-toggle {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.25rem;
     }
 
     .pl-toggle button {
@@ -206,10 +322,70 @@ export class LwBlogList extends LitElement {
     }
     .pl-toggle button:hover { background: #f5f5f5; }
 
-    /* list mode: items stacked */
+    /* ── Sort dropdown ── */
+    .pl-sort {
+      position: relative;
+    }
+
+    .pl-sort-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border: 1px solid #d4d4d4;
+      border-radius: 6px;
+      background: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.8rem;
+      color: #222;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s;
+    }
+    .pl-sort-btn:hover { border-color: #aaa; }
+
+    .pl-sort-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 160px;
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+      z-index: 500;
+      overflow: hidden;
+      /* animate */
+      opacity: 0;
+      transform: translateY(4px);
+      pointer-events: none;
+      transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+    .pl-sort-menu.is-open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .pl-sort-option {
+      display: block;
+      width: 100%;
+      padding: 9px 14px;
+      background: none;
+      border: none;
+      text-align: left;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.82rem;
+      color: #222;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .pl-sort-option:hover    { background: #f5f5f5; }
+    .pl-sort-option.selected { font-weight: 600; }
+
+    /* ── List / Grid ── */
     .pl-list { display: block; }
 
-    /* grid mode: 3-column grid */
     .pl-grid {
       display: grid;
       grid-template-columns: repeat(var(--pl-grid-columns, 3), 1fr);
@@ -217,12 +393,8 @@ export class LwBlogList extends LitElement {
       padding: 1rem 0;
     }
 
-    @media (max-width: 600px) {
-      .pl-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 380px) {
-      .pl-grid { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 600px) { .pl-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 380px) { .pl-grid { grid-template-columns: 1fr; } }
 
     .pl-loading,
     .pl-empty {
@@ -242,58 +414,92 @@ export class LwBlogList extends LitElement {
   `;
 
   render() {
-    const isGrid = this._view === 'grid';
+    const isGrid    = this._view === 'grid';
+    const sorted    = this._activeCategory === 'all'
+      ? this._sortedPosts
+      : this._sortedPosts.filter(p => p.category === this._activeCategory);
+    const total     = this.totalCount > sorted.length ? this.totalCount : 0;
+    const countText = total
+      ? `${sorted.length} results from ${total} items`
+      : `${sorted.length} result${sorted.length !== 1 ? 's' : ''}`;
 
     const items = this.loading
       ? html`<div class="pl-loading">Loading posts…</div>`
-      : this.posts.length === 0
+      : sorted.length === 0
         ? html`<div class="pl-empty">No posts found.</div>`
         : repeat(
-            this.posts,
+            sorted,
             post => post.id,
-            (post) => html`
-              <lw-blog-list-item
-                .post=${post}
-                .view=${this._view}
-              ></lw-blog-list-item>
+            post => html`
+              <lw-blog-list-item .post=${post} .view=${this._view}></lw-blog-list-item>
             `
           );
 
+    const sidebar = this.categories.length ? html`
+      <aside class="pl-sidebar">
+        <div class="pl-sidebar-title">Blog Categories</div>
+        <ul class="pl-sidebar-list">
+          ${this.categories.map(cat => html`
+            <li>
+              <button
+                class="pl-sidebar-item ${this._activeCategory === cat.value ? 'active' : ''}"
+                @click=${() => this._pickCategory(cat.value)}
+              >${cat.label}${cat.count != null ? html` <span class="pl-sidebar-count">[${cat.count}]</span>` : ''}</button>
+            </li>
+          `)}
+        </ul>
+      </aside>
+    ` : '';
+
     return html`
-      <div class="pl-container">
+      <div class="pl-outer">
+        <div class="pl-container">
 
-        <div class="pl-header">
-          <h2>${this.listLabel}</h2>
-          <div class="pl-toggle">
-            <button
-              aria-label="List view"
-              title="List view"
-              aria-pressed=${!isGrid}
-              @click=${() => this._setView('list')}
-            >
-              ${this._listIcon(!isGrid)}
-            </button>
-            <button
-              aria-label="Grid view"
-              title="Grid view"
-              aria-pressed=${isGrid}
-              @click=${() => this._setView('grid')}
-            >
-              ${this._gridIcon(isGrid)}
-            </button>
+          <div class="pl-header">
+            <span class="pl-result-count">${countText}</span>
+
+            <div class="pl-header-right">
+              <!-- View toggle -->
+              <div class="pl-toggle">
+                <button aria-label="List view" title="List view"
+                  @click=${() => this._setView('list')}>
+                  ${this._listIcon(!isGrid)}
+                </button>
+                <button aria-label="Grid view" title="Grid view"
+                  @click=${() => this._setView('grid')}>
+                  ${this._gridIcon(isGrid)}
+                </button>
+              </div>
+
+              <!-- Sort dropdown -->
+              <div class="pl-sort">
+                <button class="pl-sort-btn" @click=${this._toggleSortMenu}>
+                  ${this._sortLabel}
+                  ${this._chevronIcon()}
+                </button>
+                <div class="pl-sort-menu ${this._sortOpen ? 'is-open' : ''}">
+                  ${SORT_OPTIONS.map(opt => html`
+                    <button
+                      class="pl-sort-option ${this._sort === opt.value ? 'selected' : ''}"
+                      @click=${() => this._pickSort(opt.value)}
+                    >${opt.label}</button>
+                  `)}
+                </div>
+              </div>
+            </div>
           </div>
+
+          <div class=${isGrid ? 'pl-grid' : 'pl-list'}>
+            ${items}
+          </div>
+
+          ${!this.loading ? html`
+            <div class="pl-footer">Showing ${sorted.length} posts</div>
+          ` : ''}
+
         </div>
 
-        <div class=${isGrid ? 'pl-grid' : 'pl-list'}>
-          ${items}
-        </div>
-
-        ${!this.loading ? html`
-          <div class="pl-footer">
-            Showing all ${this.posts.length} posts
-          </div>
-        ` : ''}
-
+        ${sidebar}
       </div>
     `;
   }
