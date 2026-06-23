@@ -2,6 +2,37 @@ import { LitElement, html, css, repeat }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 import '../lw-blog-list-item/lw-blog-list-item.js';
 
+const SEARCH_URL = '/api/v1/search/all';
+const API_KEY    = 'pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg';
+const PAGE_LIMIT = 20;
+
+function mapHit(hit) {
+  // Fix protocol-relative image URLs (//cdn/...) → (https://cdn/...)
+  const image = (hit.imageUrl ?? '').replace(/^\/\//, 'https://');
+
+  // Try to pull category from topics, then fall back to the blog path segment
+  const category = hit.topics?.[0]
+    ?? hit.topic
+    ?? (hit.url ? decodeURIComponent((hit.url.split('/blogs/')[1] || '').split('/')[0]).replace(/-/g, ' ') : '');
+
+  return {
+    id:       hit.id,
+    title:    hit.title   ?? '',
+    excerpt:  hit.summary ?? hit.body ?? '',
+    image,
+    author:   hit.author?.name ?? hit.authorName ?? '',
+    avatar:   hit.author?.img  ?? hit.authorImg  ?? '',
+    category,
+    url:      hit.url ?? '#',
+    date:     hit.publishedAt ?? hit.date ?? '4 days ago',
+    readTime: hit.readTime ?? '3 min read',
+    // kept for detail view
+    _body:    hit.body    ?? '',
+    _summary: hit.summary ?? '',
+    _topics:  hit.topics  ?? [],
+  };
+}
+
 // ─────────────────────────────────────────────────────────────
 // COMPONENT: <lw-blog-list>
 // Supports list/grid toggle and sort dropdown.
@@ -40,11 +71,17 @@ export class LwBlogList extends LitElement {
 
     categories: { type: Array },
 
+    // public — set from outside to trigger search
+    searchQuery:   { type: String },
+    semanticRatio: { type: Number },
+
     // internal state
-    _view:            { state: true },
-    _sort:            { state: true },
-    _sortOpen:        { state: true },
-    _activeCategory:  { state: true },
+    _view:           { state: true },
+    _sort:           { state: true },
+    _sortOpen:       { state: true },
+    _activeCategory: { state: true },
+    _page:           { state: true },
+    _hasMore:        { state: true },
 
     // container
     containerWidth:        { attribute: 'container-width'         },
@@ -127,11 +164,117 @@ export class LwBlogList extends LitElement {
     this._sortOpen       = false;
     this._closeSort      = null;
     this._activeCategory = 'all';
+    this.searchQuery     = '';
+    this.semanticRatio   = 0;
+    this._page           = 1;
+    this._hasMore        = false;
+    this._debounceTimer  = null;
+    this._abortCtrl      = null;
+    this._observer       = null;
   }
 
   _pickCategory(value) {
     this._activeCategory = value;
     this.dispatchEvent(new CustomEvent('lw-category-change', { detail: { category: value }, bubbles: true, composed: true }));
+    this._resetAndFetch();
+  }
+
+  _onPostClick(e) {
+    const p = e.detail.post;
+    const detail = {
+      title:      p.title,
+      url:        p.url,
+      image:      p.image,
+      summary:    p._summary || p.excerpt,
+      author:     p.author,
+      avatar:     p.avatar,
+      date:       p.date,
+      readTime:   p.readTime,
+      postType:   p.category,
+      categories: p._topics,
+      tags:       p._topics,
+      body:       p._body ? [{ type: 'paragraph', text: p._body }] : [],
+    };
+    sessionStorage.setItem('lw-blog-detail', JSON.stringify(detail));
+    window.location.href = '/lw-blog-detailed/lw-blog-detailed';
+  }
+
+  _debounceFetch() {
+    clearTimeout(this._debounceTimer);
+    this._debounceTimer = setTimeout(() => this._resetAndFetch(), 500);
+  }
+
+  _resetAndFetch() {
+    this._page    = 1;
+    this._hasMore = false;
+    this.posts    = [];
+    this._fetchResults(this.searchQuery, 1, this.semanticRatio);
+  }
+
+  async _fetchResults(query, page, ratio) {
+    if (this._abortCtrl) this._abortCtrl.abort();
+    this._abortCtrl = new AbortController();
+    this.loading = true;
+
+    try {
+      const body = { query, page, limit: PAGE_LIMIT, semanticRatio: ratio };
+      if (this._activeCategory && this._activeCategory !== 'all') {
+        body.filter = { topics: [this._activeCategory] };
+      }
+
+      const res = await fetch(SEARCH_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY },
+        body:    JSON.stringify(body),
+        signal:  this._abortCtrl.signal,
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const hits = Array.isArray(data.hits) ? data.hits.map(mapHit) : [];
+
+      this.posts      = page === 1 ? hits : [...this.posts, ...hits];
+      this._hasMore   = hits.length === PAGE_LIMIT;
+      this.totalCount = data.estimatedTotalHits ?? this.posts.length;
+      this.dispatchEvent(new CustomEvent('search-time-update', {
+        detail: { ms: data.processingTimeMs ?? 0 }, bubbles: true, composed: true,
+      }));
+
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.error('Search error:', err);
+    } finally {
+      if (!this._abortCtrl?.signal.aborted) this.loading = false;
+    }
+  }
+
+  _setupObserver() {
+    if (this._observer) this._observer.disconnect();
+    const sentinel = this.shadowRoot?.querySelector('.pl-sentinel');
+    if (!sentinel) return;
+    this._observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && this._hasMore && !this.loading) {
+        this._page += 1;
+        this._fetchResults(this.searchQuery, this._page, this.semanticRatio);
+      }
+    }, { threshold: 0 });
+    this._observer.observe(sentinel);
+  }
+
+  firstUpdated() {
+    this._fetchResults('', 1, 0);
+  }
+
+  updated(changed) {
+    // Only debounce when the value actually changed from a real prior value (not initial undefined)
+    if ((changed.has('searchQuery')   && changed.get('searchQuery')   !== undefined) ||
+        (changed.has('semanticRatio') && changed.get('semanticRatio') !== undefined)) {
+      this._debounceFetch();
+    }
+    if (changed.has('posts') || changed.has('_hasMore')) {
+      this._setupObserver();
+    }
   }
 
   // ── Sort ────────────────────────────────────────────────────
@@ -175,6 +318,9 @@ export class LwBlogList extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('click', this._closeSort);
+    if (this._observer) this._observer.disconnect();
+    if (this._abortCtrl) this._abortCtrl.abort();
+    clearTimeout(this._debounceTimer);
   }
 
   // ── View toggle ─────────────────────────────────────────────
@@ -240,6 +386,9 @@ export class LwBlogList extends LitElement {
       width: 180px;
       flex-shrink: 0;
       padding-top: 0.6rem;
+      position: sticky;
+      top: var(--pl-sidebar-top, 1rem);
+      align-self: flex-start;
     }
 
     .pl-sidebar-title {
@@ -288,7 +437,7 @@ export class LwBlogList extends LitElement {
     }
 
     .pl-result-count {
-      font-size: var(--pl-header-font-size, 0.8rem);
+      font-size: var(--pl-header-font-size, 14px);
       color: #555;
       font-weight: 400;
       white-space: nowrap;
@@ -336,7 +485,7 @@ export class LwBlogList extends LitElement {
       border-radius: 6px;
       background: #fff;
       font-family: 'Source Sans 3', sans-serif;
-      font-size: 0.8rem;
+      font-size: 14px;
       color: #222;
       cursor: pointer;
       white-space: nowrap;
@@ -404,10 +553,12 @@ export class LwBlogList extends LitElement {
       font-size: 0.85rem;
     }
 
+    .pl-sentinel { height: 1px; }
+
     .pl-footer {
       padding: 1rem 0;
       text-align: center;
-      font-size: 0.75rem;
+      font-size: 14px;
       color: #bbb;
       border-top: 1px solid #f0f0f0;
     }
@@ -415,15 +566,20 @@ export class LwBlogList extends LitElement {
 
   render() {
     const isGrid    = this._view === 'grid';
-    const sorted    = this._activeCategory === 'all'
+    const q = (this.searchQuery ?? '').trim().toLowerCase();
+    const sorted    = (this._activeCategory === 'all'
       ? this._sortedPosts
-      : this._sortedPosts.filter(p => p.category === this._activeCategory);
+      : this._sortedPosts.filter(p => p.category === this._activeCategory)
+    ).filter(p => !q || [p.title, p.excerpt, p.author, p.category].some(f => f?.toLowerCase().includes(q)));
     const total     = this.totalCount > sorted.length ? this.totalCount : 0;
     const countText = total
       ? `${sorted.length} results from ${total} items`
       : `${sorted.length} result${sorted.length !== 1 ? 's' : ''}`;
 
-    const items = this.loading
+    // Initial load (no posts yet): show full-page spinner.
+    // Lazy load (posts already visible): keep existing items, show bottom spinner.
+    const isInitialLoad = this.loading && this.posts.length === 0;
+    const items = isInitialLoad
       ? html`<div class="pl-loading">Loading posts…</div>`
       : sorted.length === 0
         ? html`<div class="pl-empty">No posts found.</div>`
@@ -431,7 +587,7 @@ export class LwBlogList extends LitElement {
             sorted,
             post => post.id,
             post => html`
-              <lw-blog-list-item .post=${post} .view=${this._view}></lw-blog-list-item>
+              <lw-blog-list-item .post=${post} .view=${this._view} @post-click=${this._onPostClick}></lw-blog-list-item>
             `
           );
 
@@ -492,6 +648,12 @@ export class LwBlogList extends LitElement {
           <div class=${isGrid ? 'pl-grid' : 'pl-list'}>
             ${items}
           </div>
+
+          ${this._hasMore ? html`<div class="pl-sentinel"></div>` : ''}
+
+          ${this.loading && this.posts.length > 0
+            ? html`<div class="pl-loading">Loading more…</div>`
+            : ''}
 
           ${!this.loading ? html`
             <div class="pl-footer">Showing ${sorted.length} posts</div>

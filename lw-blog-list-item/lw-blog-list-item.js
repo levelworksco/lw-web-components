@@ -48,7 +48,7 @@ export class LwBlogListItem extends LitElement {
     .list-title:hover { color: var(--pl-title-hover-color, #555); }
 
     .list-excerpt {
-      font-size:   var(--pl-excerpt-font-size, 13px);
+      font-size:   var(--pl-excerpt-font-size, 14px);
       color:       var(--pl-excerpt-color,     #444);
       line-height: 1.65;
       margin-bottom: 0.5rem;
@@ -186,6 +186,18 @@ export class LwBlogListItem extends LitElement {
       flex-shrink: 0;
     }
 
+    .meta-avatar-placeholder {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #9ca3af;
+    }
+
     .meta-row {
       display: flex;
       align-items: center;
@@ -205,10 +217,20 @@ export class LwBlogListItem extends LitElement {
 
   constructor() { super(); this.post = {}; this.view = 'list'; }
 
+  _avatar(avatar, author) {
+    return avatar
+      ? html`<img class="meta-avatar" src="${avatar}" alt="${author}" />`
+      : html`<span class="meta-avatar-placeholder">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+          </svg>
+        </span>`;
+  }
+
   _gridMeta(author, avatar, date, readTime, category) {
     return html`
       <div class="grid-meta-author-row">
-        ${avatar ? html`<img class="meta-avatar" src="${avatar}" alt="${author}" />` : ''}
+        ${this._avatar(avatar, author)}
         <span class="meta-author">${author}</span>
       </div>
       <div class="grid-meta-date-row">
@@ -222,7 +244,7 @@ export class LwBlogListItem extends LitElement {
   _meta(author, avatar, date, readTime, category) {
     return html`
       <div class="meta-row">
-        ${avatar ? html`<img class="meta-avatar" src="${avatar}" alt="${author}" />` : ''}
+        ${this._avatar(avatar, author)}
         <span class="meta-author">${author}</span>
         <span class="meta-dot">•</span>
         <span>${date}</span>
@@ -247,9 +269,13 @@ export class LwBlogListItem extends LitElement {
       ? html`<img src="${image}" alt="${title}" />`
       : html`<div class="image-placeholder">📖</div>`;
 
+    const onClick = () => this.dispatchEvent(new CustomEvent('post-click', {
+      detail: { post: this.post }, bubbles: true, composed: true,
+    }));
+
     if (this.view === 'grid') {
       return html`
-        <div class="grid-card">
+        <div class="grid-card" style="cursor:pointer" @click=${onClick}>
           <div class="grid-image">${img}</div>
           <div class="grid-body">
             <div class="grid-title">${title}</div>
@@ -262,7 +288,7 @@ export class LwBlogListItem extends LitElement {
 
     // default: list
     return html`
-      <div class="list-row">
+      <div class="list-row" style="cursor:pointer" @click=${onClick}>
         <div class="list-content">
           <h3 class="list-title">${title}</h3>
           <div class="list-excerpt">${excerpt}</div>

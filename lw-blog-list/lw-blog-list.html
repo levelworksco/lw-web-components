@@ -22,107 +22,23 @@
   <script type="module">
     import './lw-blog-list.js';
 
-    // ── Pass data ────────────────────────────────────────────────
-    // In real usage, fetch from your API:
-    //   const res = await fetch('/api/blogs?page=1');
-    //   const { total, items } = await res.json();
-    //   el.totalCount = total;   // e.g. 80 — total blogs in system
-    //   el.posts = items;        // current page/filter results
-
+    // Posts and totalCount are now fetched from the real API automatically.
+    // Only static config (categories) is set here until the categories API is wired up.
     const el = document.getElementById('myList');
 
-    // Simulate an API response — replace with a real fetch in production:
-    //   const response = await fetch('/api/blogs?page=1');
-    //   const data = await response.json();
-    //   el.totalCount = data.total;
-    //   el.posts = data.items;
-    const data = {
-      total: 80,  // comes from your API (total blogs in the system)
-      items: [
-      {
-        id: 1,
-        title: 'Teaching That Matters',
-        excerpt: 'Counsellor experience shows labels, stress, and lost purpose can harm students. Values education and project-based learning help children feel seen, build resilience, and learn with purpose at school.',
-        author: 'Jyoti Kumta',
-        avatar: 'https://i.pravatar.cc/48?img=47',
-        date: 'March 04, 2026',
-        readTime: '3 min read',
-        category: 'Instructional Blogs',
-        image: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=400&q=80',
-      },
-      {
-        id: 2,
-        title: 'Teaching That Matters',
-        excerpt: 'Counsellor experience shows labels, stress, and lost purpose can harm students. Values education and project-based learning help children feel seen, build resilience, and learn with purpose at school.',
-        author: 'Jyoti Kumta',
-        avatar: 'https://i.pravatar.cc/48?img=47',
-        date: 'March 04, 2026',
-        readTime: '3 min read',
-        category: 'Instructional Blogs',
-        image: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=400&q=80',
-      },
-      {
-        id: 3,
-        title: 'Teaching That Matters',
-        excerpt: 'Counsellor experience shows labels, stress, and lost purpose can harm students. Values education and project-based learning help children feel seen, build resilience, and learn with purpose at school.',
-        author: 'Jyoti Kumta',
-        avatar: 'https://i.pravatar.cc/48?img=47',
-        date: 'March 04, 2026',
-        readTime: '3 min read',
-        category: 'Instructional Blogs',
-        image: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=400&q=80',
-      },
-      {
-        id: 4,
-        title: 'Teaching That Matters',
-        excerpt: 'Counsellor experience shows labels, stress, and lost purpose can harm students. Values education and project-based learning help children feel seen, build resilience, and learn with purpose at school.',
-        author: 'Jyoti Kumta',
-        avatar: 'https://i.pravatar.cc/48?img=47',
-        date: 'March 04, 2026',
-        readTime: '3 min read',
-        category: 'Instructional Blogs',
-        image: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=400&q=80',
-      },
-      {
-        id: 5,
-        title: 'Teaching That Matters',
-        excerpt: 'Counsellor experience shows labels, stress, and lost purpose can harm students. Values education and project-based learning help children feel seen, build resilience, and learn with purpose at school.',
-        author: 'Jyoti Kumta',
-        avatar: 'https://i.pravatar.cc/48?img=47',
-        date: 'March 04, 2026',
-        readTime: '3 min read',
-        category: 'Instructional Blogs',
-        image: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=400&q=80',
-      },
-      {
-        id: 6,
-        title: 'Teaching That Matters',
-        excerpt: 'Counsellor experience shows labels, stress, and lost purpose can harm students. Values education and project-based learning help children feel seen, build resilience, and learn with purpose at school.',
-        author: 'Jyoti Kumta',
-        avatar: 'https://i.pravatar.cc/48?img=47',
-        date: 'March 04, 2026',
-        readTime: '3 min read',
-        category: 'Instructional Blogs',
-        image: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=400&q=80',
-      },
-    ],
-    };
-
-    el.totalCount = data.total;
-    el.posts = data.items;
     el.categories = [
-      { value: 'all',                    label: 'All',                       count: 50 },
-      { value: 'Learning',               label: 'Learning',                  count: 2  },
-      { value: 'Reading & Literacy',     label: 'Reading & Literacy',        count: 4  },
-      { value: 'Learning Activities',    label: 'Learning Activities',       count: 8  },
-      { value: 'Project-Based Learning', label: 'Project-Based Learning',    count: 2  },
-      { value: 'Child Growth',           label: 'Child Growth & Development',count: 2  },
-      { value: 'Parenting',              label: 'Parenting',                 count: 5  },
-      { value: 'Creative Learning',      label: 'Creative Learning',         count: 8  },
-      { value: 'Learning Strategies',    label: 'Learning Strategies',       count: 5  },
-      { value: 'STEM Learning',          label: 'STEM Learning',             count: 2  },
-      { value: 'Tips & Tricks',          label: 'Tips & Tricks',             count: 10 },
-      { value: 'Instructional Blogs',    label: 'Activities & Worksheets',   count: 2  },
+      { value: 'all',                    label: 'All'                        },
+      { value: 'Learning',               label: 'Learning'                   },
+      { value: 'Reading & Literacy',     label: 'Reading & Literacy'         },
+      { value: 'Learning Activities',    label: 'Learning Activities'        },
+      { value: 'Project-Based Learning', label: 'Project-Based Learning'     },
+      { value: 'Child Growth',           label: 'Child Growth & Development' },
+      { value: 'Parenting',              label: 'Parenting'                  },
+      { value: 'Creative Learning',      label: 'Creative Learning'          },
+      { value: 'Learning Strategies',    label: 'Learning Strategies'        },
+      { value: 'STEM Learning',          label: 'STEM Learning'              },
+      { value: 'Tips & Tricks',          label: 'Tips & Tricks'              },
+      { value: 'Instructional Blogs',    label: 'Activities & Worksheets'    },
     ];
   </script>
 

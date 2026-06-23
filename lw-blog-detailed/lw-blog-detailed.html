@@ -22,6 +22,11 @@
   <script type="module">
     import './lw-blog-detailed.js';
 
+    const stored = sessionStorage.getItem('lw-blog-detail');
+    if (stored) {
+      document.getElementById('myPost').post = JSON.parse(stored);
+    } else {
+    // fallback demo data
     document.getElementById('myPost').post = {
       title:        'Teaching That Matters',
       url:          'https://heartbrightlearning.org/blogs/all/teaching-that-matters',
@@ -61,6 +66,7 @@
         { type: 'paragraph', text: 'The choice before us is not whether we have time to teach values and purpose—but whether we can afford the cost of ignoring them. Because when education teaches what truly matters, fewer children need to be "fixed." Instead, they are finally understood.' },
       ],
     };
+    }
   </script>
 
 </body>
