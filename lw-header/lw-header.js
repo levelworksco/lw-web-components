@@ -7,6 +7,7 @@ export class LwHeader extends LitElement {
     signInLabel: { type: String, attribute: 'sign-in-label' },
     signInHref:  { type: String, attribute: 'sign-in-href'  },
     logoHref:    { type: String, attribute: 'logo-href'     },
+    logoSrc:     { type: String, attribute: 'logo-src'      },
   };
 
   static styles = css`
@@ -20,9 +21,9 @@ export class LwHeader extends LitElement {
     }
 
     .header {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 0 2rem;
+      padding: 0;
       height: 60px;
       display: flex;
       align-items: center;
@@ -40,10 +41,26 @@ export class LwHeader extends LitElement {
     }
 
     .logo-icon {
+      height: 32px;
+      width: auto;
+      display: block;
+    }
+
+    .logo-placeholder {
       display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      height: 20px;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 6px;
+      background: #f3f3f3;
+      border: 1px dashed #d0d0d0;
+      color: #bbb;
+      font-size: 0.75rem;
+      font-weight: 500;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
 
@@ -74,6 +91,21 @@ export class LwHeader extends LitElement {
     this.signInLabel = 'Sign In';
     this.signInHref  = '#';
     this.logoHref    = '/';
+    this.logoSrc     = '';
+  }
+
+  _logoPlaceholder() {
+    return html`
+      <div class="logo-placeholder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+        Logo here
+      </div>
+    `;
   }
 
   render() {
@@ -81,7 +113,28 @@ export class LwHeader extends LitElement {
       <header class="header">
 
         <a class="logo" href=${this.logoHref}>
-          <img src="logo.png" alt="Logo" class="logo-icon">
+          ${this.logoSrc
+            ? html`
+                <img
+                  class="logo-icon"
+                  src=${this.logoSrc}
+                  alt="Logo"
+                  @error=${e => {
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'flex';
+                  }}
+                />
+                <div class="logo-placeholder" style="display:none">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                  </svg>
+                  Logo here
+                </div>`
+            : this._logoPlaceholder()
+          }
         </a>
 
         <a class="sign-in" href=${this.signInHref}>${this.signInLabel}</a>

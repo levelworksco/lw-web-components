@@ -2,8 +2,6 @@ import { LitElement, html, css, repeat }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 import '../lw-blog-list-item/lw-blog-list-item.js';
 
-const SEARCH_URL = '/api/v1/search/all';
-const API_KEY    = 'pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg';
 const PAGE_LIMIT = 20;
 
 function mapHit(hit) {
@@ -35,17 +33,15 @@ function mapHit(hit) {
 
 // ─────────────────────────────────────────────────────────────
 // COMPONENT: <lw-blog-list>
-// Supports list/grid toggle and sort dropdown.
+// Supports list/grid toggle, sort dropdown, and category sidebar.
 //
 // ATTRIBUTES:
-//   total-count  (Number)  — total available items (for "X results from Y items")
-//   loading      (Boolean) — show loading state
+//   base-url     (String)  — search API endpoint
+//   api-key      (String)  — X-API-KEY header value
+//   detail-url   (String)  — page navigated to on post click
 //   default-view (String)  — 'list' | 'grid'
 //   default-sort (String)  — initial sort key (see SORT_OPTIONS)
-//   + all --pl-* CSS var attributes (unchanged)
-//
-// DATA:
-//   posts (JS property) — array of post objects
+//   + all --pl-* CSS custom properties
 // ─────────────────────────────────────────────────────────────
 
 const SORT_OPTIONS = [
@@ -63,15 +59,20 @@ const SORT_OPTIONS = [
 export class LwBlogList extends LitElement {
 
   static properties = {
-    posts:       { type: Array   },
-    loading:     { type: Boolean },
-    totalCount:  { attribute: 'total-count',  type: Number },
-    defaultView: { attribute: 'default-view'  },
-    defaultSort: { attribute: 'default-sort'  },
+    // internal — set only by _fetchResults
+    posts:      { state: true },
+    loading:    { state: true },
+    totalCount: { state: true },
 
-    categories: { type: Array },
+    defaultView: { attribute: 'default-view' },
+    defaultSort: { attribute: 'default-sort' },
 
-    // public — set from outside to trigger search
+    // API configuration
+    baseUrl:   { attribute: 'base-url'   },
+    apiKey:    { attribute: 'api-key'    },
+    detailUrl: { attribute: 'detail-url' },
+
+    // set from parent to trigger search
     searchQuery:   { type: String },
     semanticRatio: { type: Number },
 
@@ -80,7 +81,7 @@ export class LwBlogList extends LitElement {
     _sort:           { state: true },
     _sortOpen:       { state: true },
     _activeCategory: { state: true },
-    _page:           { state: true },
+    _categories:     { state: true },
     _hasMore:        { state: true },
 
     // container
@@ -154,11 +155,14 @@ export class LwBlogList extends LitElement {
   constructor() {
     super();
     this.posts           = [];
-    this.categories      = [];
+    this._categories     = [];
     this.loading         = false;
     this.totalCount      = 0;
     this.defaultView     = 'list';
     this.defaultSort     = 'newest';
+    this.baseUrl         = '';
+    this.apiKey          = '';
+    this.detailUrl       = '';
     this._view           = 'list';
     this._sort           = 'newest';
     this._sortOpen       = false;
@@ -171,6 +175,48 @@ export class LwBlogList extends LitElement {
     this._debounceTimer  = null;
     this._abortCtrl      = null;
     this._observer       = null;
+    this._categoryTotals = new Map(); // cache: category value → global total count
+  }
+
+  // Builds the sidebar list immediately from loaded posts, then fires
+  // _fetchMissingTotals to replace placeholder counts with real API totals.
+  _buildCategories(posts, allTotal) {
+    const seen = new Set();
+    posts.forEach(p => { if (p.category && p.category !== 'all') seen.add(p.category); });
+
+    const cats = [...seen].map(value => ({
+      value,
+      label: value,
+      // Use cached total if available, fall back to loaded-post count as placeholder
+      count: this._categoryTotals.get(value)
+        ?? posts.filter(p => p.category === value).length,
+    })).sort((a, b) => b.count - a.count);
+
+    return [{ value: 'all', label: 'All', count: allTotal }, ...cats];
+  }
+
+  // Fetches global total count for each category not yet cached, in parallel.
+  // Uses limit:1 so only estimatedTotalHits is needed — minimal payload.
+  async _fetchMissingTotals(categoryValues) {
+    const missing = categoryValues.filter(v => !this._categoryTotals.has(v));
+    if (!missing.length) return;
+
+    await Promise.all(missing.map(async cat => {
+      try {
+        const res = await fetch(this.baseUrl, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-KEY': this.apiKey },
+          body:    JSON.stringify({ query: '', page: 1, limit: 1, semanticRatio: 0, filter: { topics: [cat] } }),
+        });
+        const data = await res.json();
+        this._categoryTotals.set(cat, data.estimatedTotalHits ?? 0);
+      } catch {
+        this._categoryTotals.set(cat, 0);
+      }
+    }));
+
+    // Re-render categories with real totals now in cache
+    this._categories = this._buildCategories(this.posts, this.totalCount);
   }
 
   _pickCategory(value) {
@@ -196,7 +242,7 @@ export class LwBlogList extends LitElement {
       body:       p._body ? [{ type: 'paragraph', text: p._body }] : [],
     };
     sessionStorage.setItem('lw-blog-detail', JSON.stringify(detail));
-    window.location.href = '/lw-blog-detailed/lw-blog-detailed';
+    window.location.href = this.detailUrl;
   }
 
   _debounceFetch() {
@@ -222,9 +268,9 @@ export class LwBlogList extends LitElement {
         body.filter = { topics: [this._activeCategory] };
       }
 
-      const res = await fetch(SEARCH_URL, {
+      const res = await fetch(this.baseUrl, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY },
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': this.apiKey },
         body:    JSON.stringify(body),
         signal:  this._abortCtrl.signal,
       });
@@ -237,6 +283,11 @@ export class LwBlogList extends LitElement {
       this.posts      = page === 1 ? hits : [...this.posts, ...hits];
       this._hasMore   = hits.length === PAGE_LIMIT;
       this.totalCount = data.estimatedTotalHits ?? this.posts.length;
+
+      // Show sidebar immediately with placeholder counts, then update with real totals
+      this._categories = this._buildCategories(this.posts, this.totalCount);
+      const catValues  = this._categories.filter(c => c.value !== 'all').map(c => c.value);
+      this._fetchMissingTotals(catValues); // non-blocking; re-renders when done
       this.dispatchEvent(new CustomEvent('search-time-update', {
         detail: { ms: data.processingTimeMs ?? 0 }, bubbles: true, composed: true,
       }));
@@ -565,13 +616,11 @@ export class LwBlogList extends LitElement {
   `;
 
   render() {
-    const isGrid    = this._view === 'grid';
-    const q = (this.searchQuery ?? '').trim().toLowerCase();
-    const sorted    = (this._activeCategory === 'all'
+    const isGrid = this._view === 'grid';
+    const sorted = this._activeCategory === 'all'
       ? this._sortedPosts
-      : this._sortedPosts.filter(p => p.category === this._activeCategory)
-    ).filter(p => !q || [p.title, p.excerpt, p.author, p.category].some(f => f?.toLowerCase().includes(q)));
-    const total     = this.totalCount > sorted.length ? this.totalCount : 0;
+      : this._sortedPosts.filter(p => p.category === this._activeCategory);
+    const total  = this.totalCount > sorted.length ? this.totalCount : 0;
     const countText = total
       ? `${sorted.length} results from ${total} items`
       : `${sorted.length} result${sorted.length !== 1 ? 's' : ''}`;
@@ -591,11 +640,11 @@ export class LwBlogList extends LitElement {
             `
           );
 
-    const sidebar = this.categories.length ? html`
+    const sidebar = this._categories.length ? html`
       <aside class="pl-sidebar">
         <div class="pl-sidebar-title">Blog Categories</div>
         <ul class="pl-sidebar-list">
-          ${this.categories.map(cat => html`
+          ${this._categories.map(cat => html`
             <li>
               <button
                 class="pl-sidebar-item ${this._activeCategory === cat.value ? 'active' : ''}"

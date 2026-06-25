@@ -17,29 +17,10 @@
 </head>
 <body>
 
-  <lw-blog-list id="myList"></lw-blog-list>
+  <lw-blog-list></lw-blog-list>
 
   <script type="module">
     import './lw-blog-list.js';
-
-    // Posts and totalCount are now fetched from the real API automatically.
-    // Only static config (categories) is set here until the categories API is wired up.
-    const el = document.getElementById('myList');
-
-    el.categories = [
-      { value: 'all',                    label: 'All'                        },
-      { value: 'Learning',               label: 'Learning'                   },
-      { value: 'Reading & Literacy',     label: 'Reading & Literacy'         },
-      { value: 'Learning Activities',    label: 'Learning Activities'        },
-      { value: 'Project-Based Learning', label: 'Project-Based Learning'     },
-      { value: 'Child Growth',           label: 'Child Growth & Development' },
-      { value: 'Parenting',              label: 'Parenting'                  },
-      { value: 'Creative Learning',      label: 'Creative Learning'          },
-      { value: 'Learning Strategies',    label: 'Learning Strategies'        },
-      { value: 'STEM Learning',          label: 'STEM Learning'              },
-      { value: 'Tips & Tricks',          label: 'Tips & Tricks'              },
-      { value: 'Instructional Blogs',    label: 'Activities & Worksheets'    },
-    ];
   </script>
 
 </body>

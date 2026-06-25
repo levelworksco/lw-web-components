@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog</title>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #ffffff;
+      font-family: 'Source Sans 3', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body>
+
+  <lw-blog
+    base-url="/api/v1/search/all"
+    api-key="pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg"
+    detail-url="/lw-blog-detailed/lw-blog-detailed"
+    demo-note="Demoing content & AI search functionality only. Demo not intended to visually match source site."
+    blogs="124"
+    updated="25 Jun 2026"
+    searches="31.5K"
+    searches-unblocked="95%"
+    logo-src="/assets/logo.png"
+    sign-in-label="Sign In"
+    sign-in-href="/sign-in"
+    logo-href="/"
+    search-placeholder="Search articles…"
+    slider-max="1"
+    slider-step="0.1"
+    style="--blog-search-top: 40px; --pl-sidebar-top: 155px;"
+  ></lw-blog>
+
+  <script type="module">
+    import './lw-blog.js';
+  </script>
+
+</body>
+</html>

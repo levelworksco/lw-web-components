@@ -8,21 +8,23 @@ A collection of Lit-based web components for the Levelworks blog platform. Built
 
 | Component | Tag | Description |
 |---|---|---|
-| [lw-header](lw-header/) | `<lw-header>` | Site header with Levelworks logo and Sign In button |
+| [lw-blog](lw-blog/) | `<lw-blog>` | **Unified entry point** — composes all blog components into one tag |
+| [lw-header](lw-header/) | `<lw-header>` | Site header with logo and Sign In button |
 | [lw-insights-bar](lw-insights-bar/) | `<lw-insights-bar>` | Stats bar (blogs, searches, updated) with collapsible View Insights panel |
-| [lw-blog-search](lw-blog-search/) | `<lw-blog-search>` | Search input with semantic ratio slider and search time display |
-| [lw-blog-list](lw-blog-list/) | `<lw-blog-list>` | Blog post list/grid with infinite scroll, category sidebar, and sort dropdown |
+| [lw-blog-search](lw-blog-search/) | `<lw-blog-search>` | Search input with semantic ratio slider and search-time display |
+| [lw-blog-list](lw-blog-list/) | `<lw-blog-list>` | Blog post list/grid with infinite scroll, dynamic category sidebar, and sort dropdown |
 | [lw-blog-list-item](lw-blog-list-item/) | `<lw-blog-list-item>` | Individual blog post card (list or grid view) |
 | [lw-blog-detailed](lw-blog-detailed/) | `<lw-blog-detailed>` | Full blog post detail view |
+| [lw-blog-overview](lw-blog-overview/) | `<lw-blog-overview>` | AI-generated overview section with citation hover cards |
 
 ---
 
 ## Demo Page
 
-Open `blog.html` to see all components assembled together.
+Open `lw-blog/lw-blog.html` to see the full assembled page.
 
 ```
-http://localhost:3000/blog
+http://localhost:3000/lw-blog/lw-blog
 ```
 
 ---
@@ -52,60 +54,164 @@ Components connect to the DiscoverAI search API:
 |---|---|
 | Endpoint | `POST /api/v1/search/all` |
 | Auth | `X-API-KEY` header |
-| Features | Full-text search, semantic ratio, facet distribution (categories), pagination |
+| Features | Full-text search, semantic ratio, category filter, infinite pagination |
 
 ---
 
-## Component Usage
+## Quick Start — single tag
+
+The `<lw-blog>` component is the recommended way to embed the full blog experience. It renders `<lw-insights-bar>`, `<lw-header>`, `<lw-blog-search>`, and `<lw-blog-list>` internally and wires all events automatically. No extra JavaScript needed.
+
+```html
+<lw-blog
+  base-url="/api/v1/search/all"
+  api-key="YOUR_API_KEY"
+  detail-url="/lw-blog-detailed/lw-blog-detailed"
+  logo-src="/assets/logo.png"
+  logo-href="/"
+  sign-in-label="Sign In"
+  sign-in-href="/sign-in"
+  demo-note="Demoing content & AI search functionality only."
+  blogs="124"
+  updated="25 Jun 2026"
+  searches="31.5K"
+  searches-unblocked="95%"
+  search-placeholder="Search articles…"
+  slider-max="1"
+  slider-step="0.1"
+  default-view="list"
+  default-sort="newest"
+  style="--blog-search-top: 40px; --pl-sidebar-top: 155px;"
+></lw-blog>
+
+<script type="module">
+  import './lw-blog/lw-blog.js';
+</script>
+```
+
+---
+
+## Component Reference
+
+### `<lw-blog>` — unified component
+
+All props from every child component are available directly on `<lw-blog>`.
+
+**Insights bar**
+
+| Attribute | Description | Default |
+|---|---|---|
+| `demo-note` | Left-side label text | Built-in demo message |
+| `blogs` | Blogs stat value | `"87"` |
+| `updated` | Updated stat value | `"18 Jun 2026"` |
+| `searches` | Searches stat value | `"14.2K"` |
+| `searches-unblocked` | Searches Unblocked stat value | `"92%"` |
+
+**Header**
+
+| Attribute | Description | Default |
+|---|---|---|
+| `logo-src` | Logo image URL; shows a placeholder if missing or broken | — |
+| `logo-href` | Logo link target | `"/"` |
+| `sign-in-label` | Sign In button text | `"Sign In"` |
+| `sign-in-href` | Sign In button URL | `"#"` |
+
+**API / navigation**
+
+| Attribute | Description |
+|---|---|
+| `base-url` | Search API endpoint |
+| `api-key` | `X-API-KEY` header value |
+| `detail-url` | Page navigated to when a post is clicked |
+
+**Search bar**
+
+| Attribute | Description | Default |
+|---|---|---|
+| `search-placeholder` | Input placeholder text | `"Search"` |
+| `slider-max` | Semantic ratio slider maximum | `1` |
+| `slider-step` | Semantic ratio slider step | `0.1` |
+| `slider-label` | Label shown left of the slider | — |
+
+**List**
+
+| Attribute | Description | Default |
+|---|---|---|
+| `default-view` | Initial layout — `list` or `grid` | `"list"` |
+| `default-sort` | Initial sort key | `"newest"` |
+
+**CSS variables**
+
+| Variable | Description | Default |
+|---|---|---|
+| `--blog-page-max-width` | Max width of the content area | `960px` |
+| `--blog-page-padding` | Padding of the content area | `0 2rem 4rem` |
+| `--blog-search-top` | Sticky top offset for the search bar | `40px` |
+| `--pl-sidebar-top` | Sticky top offset for the category sidebar | `1rem` |
+
+---
 
 ### `<lw-header>`
+
 ```html
 <lw-header
+  logo-src="/assets/logo.png"
   logo-href="/"
   sign-in-label="Sign In"
   sign-in-href="/login">
 </lw-header>
 ```
 
+If `logo-src` is omitted or the image fails to load, a placeholder box labelled **"Logo here"** is shown automatically.
+
+---
+
 ### `<lw-insights-bar>`
+
 ```html
 <lw-insights-bar
-  blogs="87"
-  updated="18 Jun 2026 3:20 PM IST"
-  searches="14.2K"
-  searches-unblocked="92%"
+  blogs="124"
+  updated="25 Jun 2026"
+  searches="31.5K"
+  searches-unblocked="95%"
   demo-note="Demoing content & AI search functionality only.">
 </lw-insights-bar>
 ```
 
+---
+
 ### `<lw-blog-search>`
+
 ```html
 <lw-blog-search
-  placeholder="Search"
-  slider-min="0"
+  placeholder="Search articles…"
   slider-max="1"
   slider-step="0.1"
-  slider-label="Semantic Ratio">
+  slider-label="Semantic">
 </lw-blog-search>
 ```
 
+Events fired: `search-change` (`detail.value`), `slider-change` (`detail.value`)
+
+---
+
 ### `<lw-blog-list>`
+
+Self-fetching — posts and categories are derived from the API automatically. No data needs to be passed in.
+
 ```html
 <lw-blog-list
+  base-url="/api/v1/search/all"
+  api-key="YOUR_API_KEY"
+  detail-url="/lw-blog-detailed/lw-blog-detailed"
   default-view="list"
   default-sort="newest">
 </lw-blog-list>
 ```
 
-**Wiring search to list:**
-```js
-const search = document.querySelector('lw-blog-search');
-const list   = document.querySelector('lw-blog-list');
+**Category sidebar** is built dynamically from the fetched results. Each category's total count is resolved via a parallel lightweight API call (`limit: 1`) and cached — no repeated requests on scroll.
 
-search.addEventListener('search-change', e => { list.searchQuery   = e.detail.value; });
-search.addEventListener('slider-change', e => { list.semanticRatio = e.detail.value; });
-list.addEventListener('search-time-update', e => { search.searchTime = e.detail.ms; });
-```
+Events fired: `search-time-update` (`detail.ms`), `lw-category-change` (`detail.category`)
 
 ---
 
