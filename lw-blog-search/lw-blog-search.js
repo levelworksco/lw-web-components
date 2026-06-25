@@ -161,10 +161,16 @@ export class LwBlogSearch extends LitElement {
       background: #e5e5e5;
     }
 
+    @media (max-width: 600px) {
+      .slider-row  { flex-wrap: wrap; }
+      .search-time { order: 3; flex-basis: 100%; padding-left: 4px; }
+    }
+
     @media (max-width: 480px) {
-      .search-row { height: 38px; padding: 0 14px; }
+      .search-row   { height: 38px; padding: 0 14px; }
       .search-input { font-size: 13.5px; }
-      .search-time { font-size: 11px; }
+      .search-time  { font-size: 11px; }
+      .slider-value { font-size: 12px; min-width: 26px; }
     }
   `;
 

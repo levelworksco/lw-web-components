@@ -41,7 +41,7 @@ export class LwHeader extends LitElement {
     }
 
     .logo-icon {
-      height: 32px;
+      height: 20px;
       width: auto;
       display: block;
     }
@@ -84,6 +84,18 @@ export class LwHeader extends LitElement {
       line-height: 1.4;
     }
     .sign-in:hover { background: #ea6c0a; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .header    { padding: 0 1.25rem; }
+    }
+
+    @media (max-width: 480px) {
+      .header    { padding: 0 1rem; height: 52px; }
+      .sign-in   { padding: 0.4rem 1rem; font-size: 0.85rem; }
+      .logo-icon { height: 26px; }
+      .logo-placeholder { height: 26px; font-size: 0.7rem; }
+    }
   `;
 
   constructor() {

@@ -118,6 +118,15 @@ export class LwBlog extends LitElement {
       position: relative;
       z-index: 0;
     }
+
+    @media (max-width: 768px) {
+      .page { padding: var(--blog-page-padding, 0 1.25rem 3rem); }
+    }
+
+    @media (max-width: 480px) {
+      .page         { padding: var(--blog-page-padding, 0 1rem 2.5rem); }
+      lw-blog-search { padding: 0.75rem 0 0.25rem; }
+    }
   `;
 
   constructor() {

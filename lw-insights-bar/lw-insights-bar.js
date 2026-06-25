@@ -25,8 +25,8 @@ export class LwInsightsBar extends LitElement {
       display: flex;
       align-items: center;
       background: #fffcf8;
-      border-top: 1px solid #ececec;
-      border-bottom: 1px solid #ececec;
+      border-top: 1px solid #f9ede2;
+      border-bottom: 2px solid #f9ede2;
       padding: 0 2rem;
       min-height: 40px;
       gap: 0;
@@ -55,7 +55,7 @@ export class LwInsightsBar extends LitElement {
       align-items: center;
       gap: 0.4rem;
       padding: 0 1.1rem;
-      border-left: 1px solid #ececec;
+      border-left: 2px solid #f9ede2;
     }
 
     .stat-label {
@@ -82,7 +82,6 @@ export class LwInsightsBar extends LitElement {
       padding: 0.8rem 0.9rem;
       background: #F3DFCF;
       border: 1px solid #fddcba;
-      border-radius: 6px;
       font-family: inherit;
       font-size: 0.78rem;
       font-weight: 600;
@@ -146,6 +145,32 @@ export class LwInsightsBar extends LitElement {
       font-size: 1rem;
       font-weight: 600;
       color: #222;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .bar          { padding: 0 1.25rem; }
+      .demo-note    { font-size: 12px; }
+      .stat         { padding: 0 0.75rem; }
+      .stat-label   { font-size: 0.62rem; }
+      .stat-value   { font-size: 0.72rem; }
+      .insights-btn { padding: 0.65rem 0.7rem; font-size: 0.72rem; margin-left: 0.75rem; }
+    }
+
+    @media (max-width: 600px) {
+      /* wrap to 2 rows: demo-note top, all stats + button below */
+      .bar        { flex-wrap: wrap; height: auto; padding: 0.35rem 1.25rem; row-gap: 0.3rem; }
+      .demo-note  { flex: 0 0 100%; padding-right: 0; white-space: nowrap; }
+      .stat-label { display: block; }
+      .stat       { padding: 0 0.6rem; border-left-width: 1px; }
+      .stats .stat:first-child { border-left: none; padding-left: 0; }
+      .insights-btn { margin-left: auto; padding: 0.5rem 0.7rem; }
+    }
+
+    @media (max-width: 480px) {
+      .bar          { padding: 0.35rem 1rem; }
+      .stat         { padding: 0 0.5rem; }
+      .insights-btn { margin-left: 0.5rem; }
     }
   `;
 

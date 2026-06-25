@@ -379,19 +379,22 @@ export class LwBlogList extends LitElement {
 
   // ── Icon SVGs ───────────────────────────────────────────────
   _listIcon(active) {
-    const c = active ? 'var(--pl-toggle-active-color,#595959)' : 'var(--pl-toggle-inactive-color,#bbb)';
+    const c = active ? 'var(--pl-toggle-active-color,#374151)' : 'var(--pl-toggle-inactive-color,#c0c4cc)';
     return html`
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:block">
-        <rect x="1" y="2"  width="16" height="3" rx="1" fill="${c}"/>
-        <rect x="1" y="7"  width="16" height="3" rx="1" fill="${c}"/>
-        <rect x="1" y="12" width="16" height="3" rx="1" fill="${c}"/>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="display:block">
+        <circle cx="3" cy="3.5"  r="2"   fill="${c}"/>
+        <rect   x="7" y="1.5"  width="12" height="4" rx="1.5" fill="${c}"/>
+        <circle cx="3" cy="10"  r="2"   fill="${c}"/>
+        <rect   x="7" y="8"    width="12" height="4" rx="1.5" fill="${c}"/>
+        <circle cx="3" cy="16.5" r="2"   fill="${c}"/>
+        <rect   x="7" y="14.5" width="12" height="4" rx="1.5" fill="${c}"/>
       </svg>`;
   }
 
   _gridIcon(active) {
-    const c = active ? 'var(--pl-toggle-active-color,#595959)' : 'var(--pl-toggle-inactive-color,#bbb)';
+    const c = active ? 'var(--pl-toggle-active-color,#374151)' : 'var(--pl-toggle-inactive-color,#c0c4cc)';
     return html`
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:block">
+      <svg width="20" height="20" viewBox="0 0 18 18" fill="none" style="display:block">
         <rect x="1"  y="1"  width="7" height="7" rx="1.5" fill="${c}"/>
         <rect x="10" y="1"  width="7" height="7" rx="1.5" fill="${c}"/>
         <rect x="1"  y="10" width="7" height="7" rx="1.5" fill="${c}"/>
@@ -437,6 +440,8 @@ export class LwBlogList extends LitElement {
       width: 180px;
       flex-shrink: 0;
       padding-top: 0.6rem;
+      padding-left: 2rem;
+      border-left: 1px solid #e8e8e8;
       position: sticky;
       top: var(--pl-sidebar-top, 1rem);
       align-self: flex-start;
@@ -505,22 +510,22 @@ export class LwBlogList extends LitElement {
     .pl-toggle {
       display: flex;
       align-items: center;
-      gap: 0.25rem;
+      gap: 2px;
     }
 
     .pl-toggle button {
       background: none;
       border: none;
-      padding: 4px;
+      padding: 6px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: 6px;
       transition: background 0.15s;
       line-height: 0;
     }
-    .pl-toggle button:hover { background: #f5f5f5; }
+    .pl-toggle button:hover { background: #f0f0f0; }
 
     /* ── Sort dropdown ── */
     .pl-sort {
@@ -530,19 +535,19 @@ export class LwBlogList extends LitElement {
     .pl-sort-btn {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 5px 10px;
-      border: 1px solid #d4d4d4;
-      border-radius: 6px;
-      background: #fff;
+      gap: 8px;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #f3f4f6;
       font-family: 'Source Sans 3', sans-serif;
       font-size: 14px;
-      color: #222;
+      color: #374151;
       cursor: pointer;
       white-space: nowrap;
-      transition: border-color 0.15s;
+      transition: background 0.15s;
     }
-    .pl-sort-btn:hover { border-color: #aaa; }
+    .pl-sort-btn:hover { background: #e9eaec; }
 
     .pl-sort-menu {
       position: absolute;
@@ -575,8 +580,8 @@ export class LwBlogList extends LitElement {
       border: none;
       text-align: left;
       font-family: 'Source Sans 3', sans-serif;
-      font-size: 0.82rem;
-      color: #222;
+      font-size: 14px;
+      color: #000;
       cursor: pointer;
       transition: background 0.1s;
     }
@@ -588,13 +593,13 @@ export class LwBlogList extends LitElement {
 
     .pl-grid {
       display: grid;
-      grid-template-columns: repeat(var(--pl-grid-columns, 3), 1fr);
+      grid-template-columns: repeat(var(--pl-grid-columns, 3), minmax(0, 1fr));
       gap: 1rem;
       padding: 1rem 0;
     }
 
-    @media (max-width: 600px) { .pl-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 380px) { .pl-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { .pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 380px) { .pl-grid { grid-template-columns: minmax(0, 1fr); } }
 
     .pl-loading,
     .pl-empty {
@@ -612,6 +617,62 @@ export class LwBlogList extends LitElement {
       font-size: 14px;
       color: #bbb;
       border-top: 1px solid #f0f0f0;
+    }
+
+    /* ── Mobile category pills (shown only below 768px) ── */
+    .pl-cats-mobile {
+      display: none;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      gap: 0.5rem;
+      padding: 0.75rem 0 0.25rem;
+    }
+    .pl-cats-mobile::-webkit-scrollbar { display: none; }
+
+    .pl-cat-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid #e5e5e5;
+      background: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 0.78rem;
+      color: #888;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .pl-cat-pill:hover  { background: #f5f5f5; color: #444; }
+    .pl-cat-pill.active { background: #fde8d4; color: #e07630; border-color: #f9c9a4; font-weight: 600; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .pl-outer   { gap: 2rem; }
+      .pl-sidebar { width: 160px; }
+    }
+
+    @media (max-width: 768px) {
+      .pl-outer   { gap: 1.5rem; }
+      .pl-sidebar { width: 140px; padding-left: 1.25rem; }
+      .pl-sidebar-title { font-size: 0.95rem; }
+      .pl-sidebar-item  { font-size: 0.75rem; }
+      .pl-sort-btn { padding: 7px 10px; font-size: 13px; }
+    }
+
+    @media (max-width: 600px) {
+      .pl-outer        { flex-direction: column; }
+      .pl-sidebar      { display: none; }
+      .pl-cats-mobile  { display: flex; }
+      .pl-header       { flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 0; }
+      .pl-result-count { font-size: 13px; }
+      .pl-grid         { gap: 0.75rem; }
+    }
+
+    @media (max-width: 380px) {
+      .pl-sort-btn  { padding: 6px 8px; font-size: 12px; gap: 5px; }
     }
   `;
 
@@ -693,6 +754,18 @@ export class LwBlogList extends LitElement {
               </div>
             </div>
           </div>
+
+          <!-- mobile horizontal category pills (hidden on desktop) -->
+          ${this._categories.length ? html`
+            <div class="pl-cats-mobile">
+              ${this._categories.map(cat => html`
+                <button
+                  class="pl-cat-pill ${this._activeCategory === cat.value ? 'active' : ''}"
+                  @click=${() => this._pickCategory(cat.value)}
+                >${cat.label}${cat.count != null ? ` [${cat.count}]` : ''}</button>
+              `)}
+            </div>
+          ` : ''}
 
           <div class=${isGrid ? 'pl-grid' : 'pl-list'}>
             ${items}

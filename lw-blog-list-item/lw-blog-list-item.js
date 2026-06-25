@@ -92,7 +92,7 @@ export class LwBlogListItem extends LitElement {
 
     .grid-image {
       width: 100%;
-      aspect-ratio: 16/10;
+      height: 180px;
       overflow: hidden;
       border-radius: var(--pl-grid-card-radius, 12px) var(--pl-grid-card-radius, 12px) 0 0;
       background: #ddd;
@@ -210,8 +210,26 @@ export class LwBlogListItem extends LitElement {
       display:flex; align-items:center; justify-content:center; font-size:1.5rem;
     }
 
+    @media (max-width: 600px) {
+      .list-row     { gap: 0.9rem; padding: 1.2rem 0; }
+      .list-title   { font-size: 1rem; }
+      .list-excerpt { -webkit-line-clamp: 2; font-size: 13px; }
+      .list-image   { width: 110px; height: 82px; }
+      .grid-image   { height: 150px; }
+    }
+
     @media (max-width: 480px) {
-      .list-image { width:80px; height:60px; }
+      .list-image   { width: 80px; height: 60px; }
+      .list-title   { font-size: 0.95rem; }
+      .list-excerpt { font-size: 12.5px; }
+      .grid-image   { height: 130px; }
+      .grid-title   { font-size: 0.88rem; }
+      .grid-excerpt { font-size: 0.75rem; -webkit-line-clamp: 3; }
+    }
+
+    @media (max-width: 380px) {
+      .list-row   { flex-direction: column; }
+      .list-image { width: 100%; height: 160px; }
     }
   `;
 
