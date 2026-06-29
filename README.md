@@ -67,7 +67,7 @@ The `<lw-blog>` component is the recommended way to embed the full blog experien
 ```html
 <lw-blog
   base-url="/api/v1/search/all"
-  api-key="pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg"
+  api-key="YOUR_API_KEY"
   detail-url="/lw-blog-details/lw-blog-details"
   demo-note="Demoing content & AI search functionality only. Demo not intended to visually match source site."
   blogs="124"
@@ -210,7 +210,7 @@ Self-fetching — posts and categories are derived from the API automatically. N
 ```html
 <lw-blog-list
   base-url="/api/v1/search/all"
-  api-key="pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg"
+  api-key="YOUR_API_KEY"
   detail-url="/lw-blog-details/lw-blog-details"
   default-view="list"
   default-sort="newest">
