@@ -697,11 +697,11 @@ export class LwBlogList extends LitElement {
             sorted,
             post => post.id,
             post => html`
-              <lw-blog-list-item .post=${post} .view=${this._view} @post-click=${this._onPostClick}></lw-blog-list-item>
+              <lw-blog-list-item .post=${{ ...post, postType: this._categories.length > 2 ? post.postType : '' }} .view=${this._view} @post-click=${this._onPostClick}></lw-blog-list-item>
             `
           );
 
-    const sidebar = this._categories.length ? html`
+    const sidebar = this._categories.length > 2 ? html`
       <aside class="pl-sidebar">
         <div class="pl-sidebar-title">Blog Categories</div>
         <ul class="pl-sidebar-list">
@@ -756,7 +756,7 @@ export class LwBlogList extends LitElement {
           </div>
 
           <!-- mobile horizontal category pills (hidden on desktop) -->
-          ${this._categories.length ? html`
+          ${this._categories.length > 2 ? html`
             <div class="pl-cats-mobile">
               ${this._categories.map(cat => html`
                 <button

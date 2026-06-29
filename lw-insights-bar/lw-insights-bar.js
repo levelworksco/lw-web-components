@@ -1,15 +1,20 @@
 import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 
+const _ICON_URL = new URL('../icon.png', import.meta.url).href;
+
 export class LwInsightsBar extends LitElement {
 
   static properties = {
     demoNote:          { type: String, attribute: 'demo-note'           },
+    logoSrc:           { type: String, attribute: 'logo-src'            },
     blogs:             { type: String },
     updated:           { type: String },
     searches:          { type: String },
-    searchesUnblocked: { type: String, attribute: 'searches-unblocked'  },
+    unblocked: { type: String, attribute: 'unblocked'  },
     _open:             { state: true },
+    _settingsOpen:     { state: true },
+    _logoError:        { state: true },
   };
 
   static styles = css`
@@ -27,12 +32,15 @@ export class LwInsightsBar extends LitElement {
       background: #fffcf8;
       border-top: 1px solid #f9ede2;
       border-bottom: 2px solid #f9ede2;
-      padding: 0 2rem;
+      padding: 0 0 0 2rem;
       min-height: 40px;
       gap: 0;
     }
 
     .demo-note {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       font-size: 14px;
       color: #3C3C43;
       font-style: normal;
@@ -42,6 +50,24 @@ export class LwInsightsBar extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       padding-right: 1.5rem;
+    }
+
+    .bar-logo {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      flex-shrink: 0;
+      display: block;
+      border-radius: 3px;
+    }
+
+    .bar-logo-placeholder {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      flex-shrink: 0;
+      display: block;
+      border-radius: 3px;
     }
 
     .stats {
@@ -59,6 +85,9 @@ export class LwInsightsBar extends LitElement {
     }
 
     .stat-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.22rem;
       font-size: 0.7rem;
       font-weight: 700;
       color: #B37040;
@@ -71,6 +100,67 @@ export class LwInsightsBar extends LitElement {
       font-weight: 700;
       color: #111;
       white-space: nowrap;
+    }
+
+    /* ── Info icon + tooltip ── */
+    .info-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .info-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #f5f5f5;
+      border: 1px solid #d0d0d0;
+      color: #B37040;
+      font-size: 11px;
+      font-weight: 700;
+      font-style: normal;
+      line-height: 12px;
+      cursor: default;
+      margin-left: 0.25rem;
+      flex-shrink: 0;
+      user-select: none;
+      vertical-align: middle;
+    }
+
+    .info-tooltip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 400;
+      line-height: 1.5;
+      white-space: nowrap;
+      padding: 0.45rem 0.7rem;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    }
+
+    .info-tooltip::after {
+      content: '';
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-bottom-color: #1a1a1a;
+    }
+
+    .info-wrap:hover .info-tooltip {
+      display: block;
     }
 
     /* ── View Insights button ── */
@@ -99,6 +189,32 @@ export class LwInsightsBar extends LitElement {
     }
     .insights-btn.is-open svg {
       transform: rotate(180deg);
+    }
+
+    /* ── Settings gear button ── */
+    .settings-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      margin: 0 0.5rem;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: #000;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .settings-btn:hover {
+      background: #F3DFCF;
+      border-color: #fddcba;
+    }
+    .settings-btn.is-open {
+      background: #f97316;
+      border-color: #f97316;
+      color: #fff;
     }
 
     /* ── Expandable panel ── */
@@ -177,19 +293,49 @@ export class LwInsightsBar extends LitElement {
   constructor() {
     super();
     this.demoNote          = 'Demoing content & AI search functionality only. Demo not intended to visually match source site.';
+    this.logoSrc           = '../../logo.png';
     this.blogs             = '87';
     this.updated           = '18 Jun 2026 3:20 PM IST';
     this.searches          = '14.2K';
-    this.searchesUnblocked = '92%';
+    this.unblocked = '92%';
     this._open             = false;
+    this._settingsOpen     = false;
+    this._logoError        = false;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // Stay in sync with the drawer no matter who opened/closed it.
+    this._onSettingsChanged = (e) => { this._settingsOpen = !!(e.detail && e.detail.open); };
+    window.addEventListener('lw-settings-changed', this._onSettingsChanged);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('lw-settings-changed', this._onSettingsChanged);
+  }
+
+  updated(changed) { if (changed.has('logoSrc')) this._logoError = false; }
+
   _toggle() { this._open = !this._open; }
+
+  _toggleSettings() {
+    // Fire a global command; <lw-settings> listens for it wherever it lives.
+    window.dispatchEvent(new CustomEvent('lw-settings-toggle', {
+      detail: { open: !this._settingsOpen },
+    }));
+  }
 
   render() {
     return html`
       <div class="bar">
-        <span class="demo-note">${this.demoNote}</span>
+        <span class="demo-note">
+          ${this.logoSrc && !this._logoError
+            ? html`<img class="bar-logo" src=${this.logoSrc} alt="" aria-hidden="true"
+                        @error=${() => { this._logoError = true; }}>`
+            : html`<img class="bar-logo-placeholder" src=${_ICON_URL} alt="" aria-hidden="true">`}
+          ${this.demoNote}
+        </span>
 
         <div class="stats">
           <div class="stat">
@@ -205,8 +351,18 @@ export class LwInsightsBar extends LitElement {
             <span class="stat-value">${this.searches}</span>
           </div>
           <div class="stat">
-            <span class="stat-label">Searches Unblocked</span>
-            <span class="stat-value">${this.searchesUnblocked}</span>
+            <span class="stat-label">
+              Unblocked
+              <span class="info-wrap">
+                <em class="info-icon">i</em>
+                <span class="info-tooltip">
+                  % of searches that returned relevant results<br>
+                  without manual filtering or re-queries.
+                </span>
+              </span>
+            </span>
+            <span class="stat-value">${this.unblocked}</span>
+            
           </div>
         </div>
 
@@ -215,6 +371,15 @@ export class LwInsightsBar extends LitElement {
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8"
               stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
+        <button class="settings-btn ${this._settingsOpen ? 'is-open' : ''}"
+                @click=${this._toggleSettings} aria-label="Settings">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
       </div>

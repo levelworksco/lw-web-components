@@ -2,6 +2,7 @@ import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 import '../lw-insights-bar/lw-insights-bar.js';
 import '../lw-header/lw-header.js';
+import '../lw-settings/lw-settings.js';
 import '../lw-blog-search/lw-blog-search.js';
 import '../lw-blog-list/lw-blog-list.js';
 
@@ -18,7 +19,7 @@ import '../lw-blog-list/lw-blog-list.js';
 //   blogs               (String)
 //   updated             (String)
 //   searches            (String)
-//   searches-unblocked  (String)
+//   unblocked           (String)
 //
 // ATTRIBUTES — header:
 //   logo-src            (String)  logo image URL; shows placeholder if missing or broken
@@ -57,13 +58,12 @@ export class LwBlog extends LitElement {
     blogs:             { attribute: 'blogs'              },
     updated:           { attribute: 'updated'            },
     searches:          { attribute: 'searches'           },
-    searchesUnblocked: { attribute: 'searches-unblocked' },
+    unblocked: { attribute: 'unblocked' },
 
     // lw-header
-    logoSrc:     { attribute: 'logo-src'      },
-    logoHref:    { attribute: 'logo-href'     },
-    signInLabel: { attribute: 'sign-in-label' },
-    signInHref:  { attribute: 'sign-in-href'  },
+    logoSrc:    { attribute: 'logo-src'    },
+    barLogoSrc: { attribute: 'bar-logo-src' },
+    logoHref:   { attribute: 'logo-href'   },
 
     // API / navigation
     baseUrl:   { attribute: 'base-url'   },
@@ -94,7 +94,7 @@ export class LwBlog extends LitElement {
     lw-insights-bar {
       position: sticky;
       top: 0;
-      z-index: 200;
+      z-index: 600;
     }
 
     .page {
@@ -136,12 +136,10 @@ export class LwBlog extends LitElement {
     this.blogs             = '';
     this.updated           = '';
     this.searches          = '';
-    this.searchesUnblocked = '';
     // header
-    this.logoSrc           = '';
-    this.logoHref          = '';
-    this.signInLabel       = '';
-    this.signInHref        = '';
+    this.logoSrc    = '';
+    this.barLogoSrc = '';
+    this.logoHref   = '';
     // API / nav
     this.baseUrl           = '';
     this.apiKey            = '';
@@ -168,17 +166,16 @@ export class LwBlog extends LitElement {
     return html`
       <lw-insights-bar
         demo-note=${this.demoNote}
+        logo-src=${this.barLogoSrc}
         blogs=${this.blogs}
         updated=${this.updated}
         searches=${this.searches}
-        searches-unblocked=${this.searchesUnblocked}
+        unblocked=${this.unblocked}
       ></lw-insights-bar>
 
       <lw-header
         logo-src=${this.logoSrc}
         logo-href=${this.logoHref}
-        sign-in-label=${this.signInLabel}
-        sign-in-href=${this.signInHref}
       ></lw-header>
 
       <div class="page">
@@ -203,6 +200,8 @@ export class LwBlog extends LitElement {
           @search-time-update=${this._onSearchTimeUpdate}
         ></lw-blog-list>
       </div>
+
+      <lw-settings></lw-settings>
     `;
   }
 }
