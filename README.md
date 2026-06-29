@@ -15,7 +15,7 @@ A collection of Lit-based web components for the Levelworks blog platform. Built
 | [lw-blog-list](lw-blog-list/) | `<lw-blog-list>` | Blog post list/grid with infinite scroll, dynamic category sidebar, and sort dropdown |
 | [lw-blog-list-item](lw-blog-list-item/) | `<lw-blog-list-item>` | Individual blog post card (list or grid view) |
 | [lw-blog-details](lw-blog-details/) | `<lw-blog-details>` | Full blog post detail view |
-| [lw-summary](lw-summary/) | `<lw-summary>` | AI-generated overview section with citation hover cards |
+| [lw-summary](lw-summary/) | `<lw-summary>` | Overview section with citation hover cards |
 | [lw-settings](lw-settings/) | `<lw-settings>` | Slide-out settings drawer for configuring search parameters |
 | [lw-slider](lw-slider/) | `<lw-slider>` | Reusable range slider primitive used by `<lw-settings>` |
 
@@ -274,7 +274,7 @@ document.querySelector('lw-blog-details').post = {
 
 ### `<lw-summary>`
 
-AI-generated overview with optional citation hover cards.
+Overview section with optional citation hover cards.
 
 | Property | Type | Description | Default |
 |---|---|---|---|
