@@ -230,13 +230,17 @@ export class LwBlogOverview extends LitElement {
       position: relative;
       top: -1px;
       color: #555;
-      text-decoration: none;
+      cursor: pointer;
       transition: background 0.12s, border-color 0.12s;
       flex-shrink: 0;
+      z-index: 0;
     }
+    .citation-link.is-open,
     .citation-link:hover {
       background: #e8e8e8;
       border-color: #bbb;
+      color: #222;
+      z-index: 100;
     }
     .citation-link svg {
       width: 12px;
@@ -295,6 +299,11 @@ export class LwBlogOverview extends LitElement {
         this.shadowRoot.querySelectorAll('.citation-num[data-article]').forEach(el => {
           const article = JSON.parse(el.dataset.article);
           this._attachHoverCard(el, [article]);
+        });
+      } else if (mode === 'link') {
+        this.shadowRoot.querySelectorAll('.citation-link[data-articles]').forEach(el => {
+          const articles = JSON.parse(el.dataset.articles);
+          if (articles.length) this._attachHoverCard(el, articles);
         });
       }
     }
@@ -414,20 +423,19 @@ export class LwBlogOverview extends LitElement {
     }
 
     if (mode === 'link') {
-      const url = citation.articles[0]?.url || '#';
       return html`
-        <a
+        <span
           class="citation-link"
-          href="${url}"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="View source"
+          data-articles=${JSON.stringify(citation.articles)}
+          role="button"
+          tabindex="0"
+          title="View sources"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
-        </a>
+        </span>
       `;
     }
 
