@@ -75,6 +75,7 @@ The `<lw-blog>` component is the recommended way to embed the full blog experien
   searches="31.5K"
   unblocked="95%"
   logo-src="/assets/logo.png"
+  branding-logo-src="/assets/branding-logo.png"
   logo-href="/"
   search-placeholder="Search articles…"
   slider-max="1"
@@ -110,10 +111,8 @@ All props from every child component are available directly on `<lw-blog>`.
 | Attribute | Description | Default |
 |---|---|---|
 | `logo-src` | Logo image URL; shows a placeholder if missing or broken | — |
-| `bar-logo-src` | Separate logo URL used inside the insights bar | — |
+| `branding-logo-src` | Separate logo URL used inside the insights bar | — |
 | `logo-href` | Logo link target | `"/"` |
-| `sign-in-label` | Sign In button text | `"Sign In"` |
-| `sign-in-href` | Sign In button URL | `"#"` |
 
 **API / navigation**
 
@@ -152,12 +151,17 @@ All props from every child component are available directly on `<lw-blog>`.
 
 ### `<lw-header>`
 
+| Attribute | Description | Default |
+|---|---|---|
+| `logo-src` | Logo image URL; shows a placeholder if missing or broken | — |
+| `branding-logo-src` | Separate logo URL used inside the insights bar | — |
+| `logo-href` | Logo link target | `"/"` |
+
 ```html
 <lw-header
   logo-src="/assets/logo.png"
-  logo-href="/"
-  sign-in-label="Sign In"
-  sign-in-href="/login">
+  branding-logo-src="/assets/branding-logo.png"
+  logo-href="/">
 </lw-header>
 ```
 
