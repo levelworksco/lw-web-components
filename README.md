@@ -14,8 +14,10 @@ A collection of Lit-based web components for the Levelworks blog platform. Built
 | [lw-blog-search](lw-blog-search/) | `<lw-blog-search>` | Search input with semantic ratio slider and search-time display |
 | [lw-blog-list](lw-blog-list/) | `<lw-blog-list>` | Blog post list/grid with infinite scroll, dynamic category sidebar, and sort dropdown |
 | [lw-blog-list-item](lw-blog-list-item/) | `<lw-blog-list-item>` | Individual blog post card (list or grid view) |
-| [lw-blog-detailed](lw-blog-detailed/) | `<lw-blog-detailed>` | Full blog post detail view |
-| [lw-blog-overview](lw-blog-overview/) | `<lw-blog-overview>` | AI-generated overview section with citation hover cards |
+| [lw-blog-details](lw-blog-details/) | `<lw-blog-details>` | Full blog post detail view |
+| [lw-summary](lw-summary/) | `<lw-summary>` | AI-generated overview section with citation hover cards |
+| [lw-settings](lw-settings/) | `<lw-settings>` | Slide-out settings drawer for configuring search parameters |
+| [lw-slider](lw-slider/) | `<lw-slider>` | Reusable range slider primitive used by `<lw-settings>` |
 
 ---
 
