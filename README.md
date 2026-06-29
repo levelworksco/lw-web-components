@@ -68,7 +68,7 @@ The `<lw-blog>` component is the recommended way to embed the full blog experien
 <lw-blog
   base-url="/api/v1/search/all"
   api-key="pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg"
-  detail-url="/lw-blog-detailed/lw-blog-detailed"
+  detail-url="/lw-blog-details/lw-blog-details"
   demo-note="Demoing content & AI search functionality only. Demo not intended to visually match source site."
   blogs="124"
   updated="25 Jun 2026"
@@ -103,13 +103,14 @@ All props from every child component are available directly on `<lw-blog>`.
 | `blogs` | Blogs stat value | `"87"` |
 | `updated` | Updated stat value | `"18 Jun 2026"` |
 | `searches` | Searches stat value | `"14.2K"` |
-| `searches-unblocked` | Searches Unblocked stat value | `"92%"` |
+| `unblocked` | Searches Unblocked stat value | `"92%"` |
 
 **Header**
 
 | Attribute | Description | Default |
 |---|---|---|
 | `logo-src` | Logo image URL; shows a placeholder if missing or broken | — |
+| `bar-logo-src` | Separate logo URL used inside the insights bar | — |
 | `logo-href` | Logo link target | `"/"` |
 | `sign-in-label` | Sign In button text | `"Sign In"` |
 | `sign-in-href` | Sign In button URL | `"#"` |
@@ -166,12 +167,21 @@ If `logo-src` is omitted or the image fails to load, a placeholder box labelled 
 
 ### `<lw-insights-bar>`
 
+| Attribute | Description |
+|---|---|
+| `demo-note` | Left-side label text |
+| `logo-src` | Logo image URL shown inside the bar |
+| `blogs` | Blogs stat value |
+| `updated` | Updated stat value |
+| `searches` | Searches stat value |
+| `unblocked` | Searches Unblocked stat value |
+
 ```html
 <lw-insights-bar
   blogs="124"
   updated="25 Jun 2026"
   searches="31.5K"
-  searches-unblocked="95%"
+  unblocked="95%"
   demo-note="Demoing content & AI search functionality only.">
 </lw-insights-bar>
 ```
@@ -200,8 +210,8 @@ Self-fetching — posts and categories are derived from the API automatically. N
 ```html
 <lw-blog-list
   base-url="/api/v1/search/all"
-  api-key="YOUR_API_KEY"
-  detail-url="/lw-blog-detailed/lw-blog-detailed"
+  api-key="pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg"
+  detail-url="/lw-blog-details/lw-blog-details"
   default-view="list"
   default-sort="newest">
 </lw-blog-list>
@@ -210,6 +220,122 @@ Self-fetching — posts and categories are derived from the API automatically. N
 **Category sidebar** is built dynamically from the fetched results. Each category's total count is resolved via a parallel lightweight API call (`limit: 1`) and cached — no repeated requests on scroll.
 
 Events fired: `search-time-update` (`detail.ms`), `lw-category-change` (`detail.category`)
+
+---
+
+### `<lw-blog-details>`
+
+Renders a single blog post in full detail view. Data is passed as a JS property.
+
+```js
+document.querySelector('lw-blog-details').post = {
+  title, url, image, imageCaption,
+  summary,
+  author, avatar, date, readTime, postType,
+  categories: [],
+  tags: [],
+  body: [
+    { type: 'heading',   text: '...' },
+    { type: 'paragraph', text: '...' },
+    { type: 'image',     src: '...', alt: '...', caption: '...' },
+  ]
+};
+```
+
+**Styling attributes** (each maps to a `--pd-*` CSS variable):
+
+| Attribute | Description |
+|---|---|
+| `container-width` | Width of the content container |
+| `container-max-width` | Max width of the content container |
+| `container-margin` | Margin of the content container |
+| `container-background` | Background colour |
+| `title-color` | Post title colour |
+| `title-font-size` | Post title font size |
+| `title-font-family` | Post title font family |
+| `url-color` | Link colour |
+| `image-border-radius` | Hero image border radius |
+| `image-caption-color` | Image caption colour |
+| `summary-color` | Summary text colour |
+| `meta-label-color` | Meta label colour (Author, Date, etc.) |
+| `meta-value-color` | Meta value colour |
+| `body-color` | Body text colour |
+| `body-line-height` | Body line height |
+| `body-font-size` | Body font size |
+| `section-label-color` | Section heading colour |
+| `section-label-font-size` | Section heading font size |
+| `css-vars` | Inline `--var: value; --var: value` pairs for bulk overrides |
+
+---
+
+### `<lw-summary>`
+
+AI-generated overview with optional citation hover cards.
+
+| Property | Type | Description | Default |
+|---|---|---|---|
+| `heading` | String | Section title | `"Overview"` |
+| `displayCitations` | String | `'none'` \| `'number'` \| `'chip'` \| `'link'` | `'chip'` |
+| `paragraphs` | Array | Array of paragraph objects (see below) | `[]` |
+
+**Paragraph object shape:**
+```js
+{
+  text: String,
+  citation?: {
+    label: String,
+    articles: [{ title, excerpt, image, url }]
+  }
+}
+```
+
+```js
+document.querySelector('lw-summary').paragraphs = [
+  {
+    text: 'Children learn best through play.',
+    citation: {
+      label: 'Source 1',
+      articles: [{ title: 'Play & Learning', excerpt: '...', image: '/img.jpg', url: '/post/1' }]
+    }
+  }
+];
+```
+
+---
+
+### `<lw-settings>`
+
+Slide-out settings drawer.
+
+| Property | Type | Description | Default |
+|---|---|---|---|
+| `open` | Boolean | Controls drawer open/closed state | `false` |
+| `width` | String | Drawer width | `"300px"` |
+| `top` | String | Top offset (CSS value) | — |
+
+CSS variables: `--lw-drawer-top`, `--lw-drawer-width`
+
+Events fired: `settings-open`, `settings-close`
+
+---
+
+### `<lw-slider>`
+
+Reusable range slider primitive.
+
+| Property | Type | Description | Default |
+|---|---|---|---|
+| `value` | Number | Current value | `0.5` |
+| `min` | Number | Minimum value | `0` |
+| `max` | Number | Maximum value | `10` |
+| `step` | Number | Step increment | `0.1` |
+| `label` | String | Label shown left of the slider | `""` |
+
+```html
+<lw-slider value="0.5" min="0" max="1" step="0.1" label="Semantic"></lw-slider>
+```
+
+Event fired: `slider-change` (`detail.value`)
 
 ---
 
