@@ -67,22 +67,18 @@ The `<lw-blog>` component is the recommended way to embed the full blog experien
 ```html
 <lw-blog
   base-url="/api/v1/search/all"
-  api-key="YOUR_API_KEY"
+  api-key="pk_live_Hc2FcW8wuKRKnPLMq4epcNA1F73Vv5ZgRYtTEHTSkJg"
   detail-url="/lw-blog-detailed/lw-blog-detailed"
-  logo-src="/assets/logo.png"
-  logo-href="/"
-  sign-in-label="Sign In"
-  sign-in-href="/sign-in"
-  demo-note="Demoing content & AI search functionality only."
+  demo-note="Demoing content & AI search functionality only. Demo not intended to visually match source site."
   blogs="124"
   updated="25 Jun 2026"
   searches="31.5K"
-  searches-unblocked="95%"
+  unblocked="95%"
+  logo-src="/assets/logo.png"
+  logo-href="/"
   search-placeholder="Search articles…"
   slider-max="1"
   slider-step="0.1"
-  default-view="list"
-  default-sort="newest"
   style="--blog-search-top: 40px; --pl-sidebar-top: 155px;"
 ></lw-blog>
 
