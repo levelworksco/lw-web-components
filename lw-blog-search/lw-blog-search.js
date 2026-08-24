@@ -137,27 +137,23 @@ export class LwBlogSearch extends LitElement {
     .search-time {
       display: flex;
       flex-direction: column;
-      gap: 1px;
-    }
-    .search-time-value {
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: #f97316;
-      line-height: 1.2;
-      letter-spacing: -0.5px;
-    }
-    .search-time-value span {
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: #000;
-      letter-spacing: 0;
+      gap: 2px;
+      white-space: nowrap;
     }
     .search-time-label {
       font-size: 0.72rem;
-      color: #000;
+      font-weight: 600;
+      color: #000000;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      font-weight: 500;
+      line-height: 1.2;
+    }
+    .search-time-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #8B94A2;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
     }
 
     .divider {
@@ -166,10 +162,17 @@ export class LwBlogSearch extends LitElement {
       margin-top: 12px;
     }
 
-    /* collapse sidebar col below 640px (matches blog-list breakpoint) */
+    /* below 640px: keep input + time on one row (matches blog-list breakpoint) */
     @media (max-width: 640px) {
-      .cols         { gap: 1.5rem; }
-      .sidebar-col  { display: none; }
+      .cols        { gap: 1rem; align-items: center; }
+      .sidebar-col {
+        width: auto;
+        flex-shrink: 0;
+        padding-left: 0;
+        padding-top: 0;
+        border-left: none;
+      }
+      .search-time { align-items: flex-end; text-align: right; }
     }
 
     @media (max-width: 480px) {
@@ -206,6 +209,14 @@ export class LwBlogSearch extends LitElement {
       bubbles: true, composed: true,
     }));
     this.shadowRoot.querySelector('.search-input')?.focus();
+  }
+
+  // ms → mm:ss
+  _fmtTime(ms) {
+    const total = Math.floor((ms ?? 0) / 1000);
+    const mm = String(Math.floor(total / 60)).padStart(2, '0');
+    const ss = String(total % 60).padStart(2, '0');
+    return `${mm}:${ss}`;
   }
 
   _onSliderChange(e) {
@@ -259,8 +270,8 @@ export class LwBlogSearch extends LitElement {
           <div class="sidebar-col">
             ${this.searchTime != null ? html`
               <div class="search-time">
-                <div class="search-time-value">${this.searchTime}<span> ms</span></div>
-                <div class="search-time-label">Search time</div>
+                <div class="search-time-label">Search took</div>
+                <div class="search-time-value">${this._fmtTime(this.searchTime)}</div>
               </div>` : ''}
           </div>
         </div>

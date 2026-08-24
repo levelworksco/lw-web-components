@@ -141,9 +141,9 @@ export class LwBlogOverview extends LitElement {
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     .container {
-      max-width: 840px;
+      max-width: 100%;
       margin: 0 auto;
-      padding: 32px 24px 40px;
+      padding: 32px 0 0;
     }
 
     h1 {

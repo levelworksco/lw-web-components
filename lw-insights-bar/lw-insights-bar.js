@@ -273,20 +273,81 @@ export class LwInsightsBar extends LitElement {
       .insights-btn { padding: 0.65rem 0.7rem; font-size: 0.72rem; margin-left: 0.75rem; }
     }
 
-    @media (max-width: 600px) {
-      /* wrap to 2 rows: demo-note top, all stats + button below */
-      .bar        { flex-wrap: wrap; height: auto; padding: 0.35rem 1.25rem; row-gap: 0.3rem; }
-      .demo-note  { flex: 0 0 100%; padding-right: 0; white-space: nowrap; }
-      .stat-label { display: block; }
-      .stat       { padding: 0 0.6rem; border-left-width: 1px; }
-      .stats .stat:first-child { border-left: none; padding-left: 0; }
-      .insights-btn { margin-left: auto; padding: 0.5rem 0.7rem; }
+    @media (max-width: 1023px) {
+      /* Stack into 3 rows: demo-note, stats band, button row */
+      .bar {
+        flex-wrap: wrap;
+        min-height: 0;
+        padding: 0;
+        align-items: stretch;
+      }
+
+      /* Row 1 — demo note (wraps to multiple lines) */
+      .demo-note {
+        align-items: flex-start;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        line-height: 1.4;
+        padding: 0.85rem 1.25rem;
+      }
+
+      /* Row 2 — stats on their own peach band */
+      .stats {
+        flex: 0 0 100%;
+        min-width: 0;
+        background: #fdf2e9;
+        border-top: 1px solid #f9ede2;
+        border-bottom: 1px solid #f9ede2;
+      }
+      .stat {
+        flex: 1 1 0;
+        min-width: 0;            /* allow shrink below content width — prevents overflow */
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        text-align: center;
+        gap: 0.2rem;
+        padding: 0.7rem 0.3rem;
+        border-left: 1px solid #f4dcc7;
+        overflow-wrap: anywhere;
+      }
+      .stats .stat:first-child { border-left: none; }
+      .stat-label {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        white-space: normal;
+        line-height: 1.2;
+      }
+      .stat-value { white-space: normal; line-height: 1.25; }
+
+      /* Tooltip — anchor to the right edge and wrap so it can't run off-screen */
+      .info-tooltip {
+        white-space: normal;
+        width: min(240px, 80vw);
+        left: auto;
+        right: 0;
+        transform: none;
+      }
+      .info-tooltip::after {
+        left: auto;
+        right: 14px;
+        transform: none;
+      }
+
+      /* Row 3 — View Insights on the left, gear pushed to the right */
+      .insights-btn {
+        margin: 0.7rem 0 0.7rem 1.25rem;
+        padding: 0.55rem 0.8rem;
+      }
+      .settings-btn { margin-left: auto; margin-right: 1rem; margin-top: 0.7rem; }
     }
 
     @media (max-width: 480px) {
-      .bar          { padding: 0.35rem 1rem; }
-      .stat         { padding: 0 0.5rem; }
-      .insights-btn { margin-left: 0.5rem; }
+      .demo-note    { font-size: 13px; padding: 0.75rem 1rem; }
+      .stat         { padding: 0.6rem 0.3rem; }
+      .insights-btn { margin-left: 1rem; }
     }
   `;
 

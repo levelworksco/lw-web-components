@@ -24,24 +24,26 @@ export class LwHeader extends LitElement {
       margin: 0 auto;
       padding: 0 1.5rem;
       height: 60px;
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       align-items: center;
-      justify-content: space-between;
+      gap: 0.75rem;
     }
 
     /* ── Left logo ── */
     .logo {
+      justify-self: start;
       display: inline-flex;
       align-items: center;
       gap: 0.55rem;
       text-decoration: none;
       color: inherit;
       user-select: none;
-      flex-shrink: 0;
+      min-width: 0;
     }
 
     .logo-icon {
-      height: 32px;
+      height: 20px;
       width: auto;
       display: block;
     }
@@ -51,7 +53,7 @@ export class LwHeader extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      height: 32px;
+      height: 20px;
       padding: 0 10px;
       border-radius: 6px;
       background: #f3f3f3;
@@ -67,13 +69,14 @@ export class LwHeader extends LitElement {
       font-size: 1rem;
       font-weight: 700;
       color: #111;
-      flex: 1;
       text-align: center;
       letter-spacing: -0.01em;
+      white-space: nowrap;
     }
 
     /* ── Powered-by badge ── */
     .branding {
+      justify-self: end;
       display: inline-flex;
       flex-direction: column;
       align-items: center;
@@ -84,7 +87,7 @@ export class LwHeader extends LitElement {
       border-radius: 8px;
       transition: background 0.15s, border-color 0.15s;
       white-space: nowrap;
-      flex-shrink: 0;
+      min-width: 0;
     }
 
     .branding-label {
@@ -125,13 +128,28 @@ export class LwHeader extends LitElement {
       .header { padding: 0 1.25rem; }
     }
 
+    @media (max-width: 600px) {
+      .title { font-size: 0.9rem; }
+      .logo-icon   { max-width: 38vw; object-fit: contain; }
+      .branding-logo { max-width: 30vw; object-fit: contain; }
+    }
+
     @media (max-width: 480px) {
-      .header         { padding: 0 1rem; height: 52px; }
-      .logo-icon      { height: 26px; }
-      .logo-placeholder { height: 26px; font-size: 0.7rem; }
-      .branding       { padding: 0.25rem 0.6rem 0.25rem 0.5rem; }
-      .branding-logo  { height: 18px; }
-      .branding-label { font-size: 0.6rem; }
+      .header         { padding: 0 1rem; height: 52px; gap: 0.5rem; }
+      .title          { font-size: 0.8rem; }
+      .logo-icon      { height: 12px; max-width: 34vw; }
+      .logo-placeholder { height: 24px; font-size: 0.7rem; }
+      .branding       { padding: 0.25rem 0.4rem; }
+      .branding-logo  { height: 8px; max-width: 30vw; }
+      .branding-label { font-size: 0.58rem; }
+    }
+
+    /* Too narrow for all three — drop the center title, keep both logos */
+    @media (max-width: 420px) {
+      .header { grid-template-columns: auto 1fr; }
+      .title  { display: none; }
+      .logo-icon     { max-width: 42vw; }
+      .branding-logo { max-width: 42vw; }
     }
   `;
 
