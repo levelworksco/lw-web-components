@@ -28,7 +28,7 @@ export class LwSlider extends LitElement {
   static styles = css`
     :host {
       display: block;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       color: #3c3c3c;
       -webkit-font-smoothing: antialiased;
     }

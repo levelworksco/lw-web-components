@@ -15,19 +15,22 @@ export class LwHeader extends LitElement {
       width: 100%;
       background: #ffffff;
       border-bottom: 1px solid #e8e8e8;
-      font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
 
     .header {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
+      /* Overridable so a host (e.g. the compare view) can widen/left-align the
+         header to line its logo up with the content beside a side panel. */
+      max-width: var(--lw-header-max-width, 960px);
+      margin: var(--lw-header-margin, 0 auto);
+      padding: var(--lw-header-padding, 0 1.5rem);
       height: 60px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       align-items: center;
       gap: 0.75rem;
+      transition: padding 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* ── Left logo ── */
@@ -43,7 +46,7 @@ export class LwHeader extends LitElement {
     }
 
     .logo-icon {
-      height: 20px;
+      height: 30px;
       width: auto;
       display: block;
     }
@@ -53,7 +56,7 @@ export class LwHeader extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      height: 20px;
+      height: 30px;
       padding: 0 10px;
       border-radius: 6px;
       background: #f3f3f3;
@@ -66,9 +69,9 @@ export class LwHeader extends LitElement {
 
     /* ── Header title ── */
     .title {
-      font-size: 1rem;
+      font-size: 18px;
       font-weight: 700;
-      color: #111;
+      color: #F58635;
       text-align: center;
       letter-spacing: -0.01em;
       white-space: nowrap;
@@ -130,26 +133,40 @@ export class LwHeader extends LitElement {
 
     @media (max-width: 600px) {
       .title { font-size: 0.9rem; }
-      .logo-icon   { max-width: 38vw; object-fit: contain; }
+      .logo-icon   { max-width: 30vw; object-fit: contain; }
       .branding-logo { max-width: 30vw; object-fit: contain; }
     }
 
     @media (max-width: 480px) {
       .header         { padding: 0 1rem; height: 52px; gap: 0.5rem; }
       .title          { font-size: 0.8rem; }
-      .logo-icon      { height: 12px; max-width: 34vw; }
+      .logo-icon      { height: 20px; max-width: 34vw; }
       .logo-placeholder { height: 24px; font-size: 0.7rem; }
       .branding       { padding: 0.25rem 0.4rem; }
       .branding-logo  { height: 8px; max-width: 30vw; }
       .branding-label { font-size: 0.58rem; }
     }
 
-    /* Too narrow for all three — drop the center title, keep both logos */
+    /* Keep logo, title and branding on a single row even on narrow phones —
+       just shrink everything and let the title ellipsize if it must. */
     @media (max-width: 420px) {
-      .header { grid-template-columns: auto 1fr; }
-      .title  { display: none; }
-      .logo-icon     { max-width: 42vw; }
-      .branding-logo { max-width: 42vw; }
+      .header {
+        height: auto;
+        padding: 0.5rem 0.75rem;
+        gap: 0.4rem;
+      }
+      .logo-icon        { height: 18px; max-width: 24vw; }
+      .logo-placeholder { height: 20px; padding: 0 6px; font-size: 0.62rem; }
+      .title {
+        font-size: 0.7rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .branding        { padding: 0.2rem 0.4rem 0.2rem 0.35rem; gap: 0.15rem; }
+      .branding-label  { font-size:8px; }
+      .branding-logo   { height: 12px; max-width: 24vw; }
+      .branding-logo-placeholder { font-size: 0.7rem; gap: 3px; }
+      .branding-logo-placeholder svg { width: 11px; height: 11px; }
     }
   `;
 

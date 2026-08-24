@@ -1,8 +1,18 @@
 import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 
+// Standard "broken/missing image" glyph (picture frame + mountain + sun),
+// shown when the hero/body image fails to load.
+const IMAGE_PLACEHOLDER_ICON = html`
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2.5" y="3.5" width="19" height="17" rx="2" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="8" cy="9" r="1.75" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M3 16.5l5.5-5.5a1.5 1.5 0 0 1 2.12 0L15 15.38M13.5 13.5l1.88-1.88a1.5 1.5 0 0 1 2.12 0L21 15.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+`;
+
 // ─────────────────────────────────────────────────────────────
-// COMPONENT: <lw-blog-detailed>
+// COMPONENT: <lw-blog-details>
 // Renders a single blog post in full detail view.
 //
 // ATTRIBUTES (map to --pd-* CSS vars):
@@ -84,7 +94,7 @@ export class LwBlogDetailed extends LitElement {
     :host {
       display: block;
       width: 100%;
-      font-family: 'Source Sans 3', sans-serif;
+      font-family: 'Inter', sans-serif;
       color: #222;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -105,7 +115,7 @@ export class LwBlogDetailed extends LitElement {
 
     /* ── Title ── */
     .pd-title {
-      font-family: var(--pd-title-font-family, 'Source Sans 3', sans-serif);
+      font-family: var(--pd-title-font-family, 'Inter', sans-serif);
       font-size:   var(--pd-title-font-size, 2rem);
       font-weight: 700;
       color:       var(--pd-title-color, #111);
@@ -172,6 +182,12 @@ export class LwBlogDetailed extends LitElement {
       aspect-ratio: 16/7;
     }
     .pd-image-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+    .pd-image-placeholder {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: #e9ecef;
+    }
+    .pd-image-placeholder svg { width: 22%; height: 22%; color: #adb5bd; }
 
     .pd-image-caption {
       font-size: 0.68rem;
@@ -199,7 +215,7 @@ export class LwBlogDetailed extends LitElement {
 
     /* ── Summary ── */
     .pd-summary {
-      font-size: 0.9rem;
+      font-size: 16px;
       color:     var(--pd-summary-color, #000) !important;
       line-height: 1.7;
     }
@@ -235,6 +251,7 @@ export class LwBlogDetailed extends LitElement {
       display: block;
       object-fit: cover;
     }
+    .pd-body-image .pd-image-placeholder { aspect-ratio: 16/9; }
     .pd-body-image-caption {
       font-size: 0.68rem;
       color: var(--pd-image-caption-color, #aaa);
@@ -253,7 +270,12 @@ export class LwBlogDetailed extends LitElement {
       if (block.type === 'image') {
         return html`
           <div class="pd-body-image">
-            <img src="${block.src}" alt="${block.alt ?? ''}" loading="lazy" />
+            <img src="${block.src}" alt="${block.alt ?? ''}" loading="lazy"
+                 @error=${e => {
+                   e.target.style.display = 'none';
+                   e.target.nextElementSibling.style.display = 'flex';
+                 }} />
+            <div class="pd-image-placeholder" style="display:none">${IMAGE_PLACEHOLDER_ICON}</div>
           </div>
           <div class="pd-body-image-caption">
             <a href="${block.src}" target="_blank" rel="noopener noreferrer">${block.src}</a>
@@ -262,6 +284,22 @@ export class LwBlogDetailed extends LitElement {
       }
       return html`<p>${block.text}</p>`;
     });
+  }
+
+  _metaParts(author, avatar, date, readTime, postType) {
+    const parts = [];
+    if (author) {
+      parts.push(html`
+        ${avatar ? html`<img class="pd-meta-avatar" src="${avatar}" alt="${author}"
+                             @error=${e => { e.target.style.display = 'none'; }} />` : ''}
+        <span class="pd-meta-author">${author}</span>
+      `);
+    }
+    if (date)     parts.push(html`<span>${date}</span>`);
+    if (readTime) parts.push(html`<span>${readTime}</span>`);
+    if (postType) parts.push(html`<span class="pd-meta-category-pill">${postType}</span>`);
+
+    return parts.map((part, i) => html`${i ? html`<span class="pd-meta-dot">•</span>` : ''}${part}`);
   }
 
   render() {
@@ -280,14 +318,11 @@ export class LwBlogDetailed extends LitElement {
         <h1 class="pd-title">${title}</h1>
         ${url ? html`<a class="pd-url" href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>` : ''}
 
-        <!-- Inline meta row -->
+        <!-- Inline meta row. Parts carry a leading "•" only when something
+             already precedes them, so a missing date (or author, or read
+             time) leaves no stray separator. -->
         <div class="pd-meta-row">
-          ${avatar ? html`<img class="pd-meta-avatar" src="${avatar}" alt="${author}" />` : ''}
-          <span class="pd-meta-author">${author}</span>
-          <span class="pd-meta-dot">•</span>
-          <span>${date}</span>
-          ${readTime ? html`<span class="pd-meta-dot">•</span><span>${readTime}</span>` : ''}
-          ${postType ? html`<span class="pd-meta-dot">•</span><span class="pd-meta-category-pill">${postType}</span>` : ''}
+          ${this._metaParts(author, avatar, date, readTime, postType)}
         </div>
 
         <!-- Tags -->
@@ -298,7 +333,12 @@ export class LwBlogDetailed extends LitElement {
         <!-- Hero image -->
         ${image ? html`
           <div class="pd-image-wrap">
-            <img src="${image}" alt="${title}" loading="lazy" />
+            <img src="${image}" alt="${title}" loading="lazy"
+                 @error=${e => {
+                   e.target.style.display = 'none';
+                   e.target.nextElementSibling.style.display = 'flex';
+                 }} />
+            <div class="pd-image-placeholder" style="display:none">${IMAGE_PLACEHOLDER_ICON}</div>
           </div>
           ${imageCaption ? html`
             <div class="pd-image-caption">
@@ -308,9 +348,11 @@ export class LwBlogDetailed extends LitElement {
             </div>` : ''}
         ` : ''}
 
-        <hr class="pd-divider" />
-        <div class="pd-section-label">Summary</div>
-        <div class="pd-summary">${summary}</div>
+        ${summary ? html`
+          <hr class="pd-divider" />
+          <div class="pd-section-label">Summary</div>
+          <div class="pd-summary">${summary}</div>
+        ` : ''}
 
         <hr class="pd-divider" />
         <div class="pd-section-label">Body</div>
@@ -323,4 +365,4 @@ export class LwBlogDetailed extends LitElement {
   }
 }
 
-customElements.define('lw-blog-detailed', LwBlogDetailed);
+customElements.define('lw-blog-details', LwBlogDetailed);

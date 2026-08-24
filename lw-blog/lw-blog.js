@@ -10,87 +10,77 @@ import '../lw-summary/lw-summary.js';
 // ─────────────────────────────────────────────────────────────
 // COMPONENT: <lw-blog>
 //
-// Composes the blog UI and distributes each value to the right
-// child component. Never fetches — <lw-blog-page> fetches the API
-// and passes the whole response in via the `data` property. Fields
-// on `data` take precedence over the matching attributes, which act
-// as fallbacks/defaults (used when rendering <lw-blog> standalone).
+// Single entry-point that composes:
+//   <lw-insights-bar> + <lw-header> + <lw-blog-search> + <lw-blog-list>
 //
-// PROPERTIES — content:
-//   data                (Object)  full API response from lw-blog-page
-//
-// ATTRIBUTES — connection config:
-//   base-url            (String)  search API endpoint (used by lw-blog-list)
-//   api-key             (String)  X-API-KEY header value
-//   detail-url          (String)  page opened on post click
+// All internal events are wired automatically.
 //
 // ATTRIBUTES — insights bar:
 //   demo-note           (String)
-//   bar-logo-src        (String)
 //   blogs               (String)
 //   updated             (String)
 //   searches            (String)
 //   unblocked           (String)
 //
 // ATTRIBUTES — header:
-//   logo-src            (String)
+//   logo-src            (String)  logo image URL; shows placeholder if missing or broken
 //   logo-href           (String)
+//   sign-in-label       (String)
+//   sign-in-href        (String)
 //
-// ATTRIBUTES / PROPERTIES — summary (lw-blog-overview):
-//   summary-heading     (String)  section title
-//   summary-citations   (String)  'none' | 'number' | 'chip' | 'link'
-//   summaryParagraphs   (Array)   paragraph/citation data (property only)
+// ATTRIBUTES — API / navigation:
+//   base-url            (String)  search API endpoint
+//   api-key             (String)  X-API-KEY header value
+//   detail-url          (String)  page opened on post click
 //
 // ATTRIBUTES — search bar:
-//   search-placeholder  (String)
-//   slider-max          (Number)
-//   slider-step         (Number)
-//   slider-label        (String)
+//   search-placeholder  (String)  input placeholder
+//   slider-max          (Number)  semantic slider max  (default 1)
+//   slider-step         (Number)  semantic slider step (default 0.1)
+//   slider-label        (String)  label left of slider
 //
 // ATTRIBUTES — list:
 //   default-view        (String)  'list' | 'grid'
-//   default-sort        (String)
+//   default-sort        (String)  initial sort key
 //
 // CSS VARIABLES (set on <lw-blog> host):
 //   --blog-page-max-width   max-width of content area  (default 960px)
 //   --blog-page-padding     padding of content area    (default 0 2rem 4rem)
-//   --blog-search-top       sticky top for search bar  (default 40px)
+//   --blog-search-top       sticky top for search bar  (default 34px)
 //   --pl-sidebar-top        sticky top for list sidebar
+//   All --pl-* and --pd-* vars inherit into child shadows automatically.
 // ─────────────────────────────────────────────────────────────
 
 export class LwBlog extends LitElement {
 
   static properties = {
-    // content (full API response from lw-blog-page)
-    data:      { type: Object },
+    // lw-insights-bar
+    demoNote:          { attribute: 'demo-note'          },
+    blogs:             { attribute: 'blogs'              },
+    updatedAt:         { attribute: 'updated'            },
+    searches:          { attribute: 'searches'           },
+    unblocked: { attribute: 'unblocked' },
 
-    // connection config
+    // lw-header
+    logoSrc:    { attribute: 'logo-src'    },
+    barLogoSrc: { attribute: 'bar-logo-src' },
+    logoHref:   { attribute: 'logo-href'   },
+
+    // API / navigation
     baseUrl:   { attribute: 'base-url'   },
     apiKey:    { attribute: 'api-key'    },
     detailUrl: { attribute: 'detail-url' },
-
-    // insights bar
-    demoNote:   { attribute: 'demo-note'    },
-    barLogoSrc: { attribute: 'bar-logo-src' },
-    blogs:      { attribute: 'blogs'        },
-    updated:    { attribute: 'updated'      },
-    searches:   { attribute: 'searches'     },
-    unblocked:  { attribute: 'unblocked'    },
-
-    // header
-    logoSrc:  { attribute: 'logo-src'  },
-    logoHref: { attribute: 'logo-href' },
-
-    // summary
-    summaryHeading:    { attribute: 'summary-heading'   },
-    summaryCitations:  { attribute: 'summary-citations' },
-    summaryParagraphs: { type: Array },
 
     // search bar
     searchPlaceholder: { attribute: 'search-placeholder' },
     sliderMax:         { type: Number, attribute: 'slider-max'  },
     sliderStep:        { type: Number, attribute: 'slider-step' },
     sliderLabel:       { attribute: 'slider-label' },
+
+    // summary
+    summaryHeading:    { attribute: 'summary-heading'   },
+    summaryCitations:  { attribute: 'summary-citations' },
+    summaryParagraphs: { type: Array },
 
     // list
     defaultView: { attribute: 'default-view' },
@@ -122,12 +112,12 @@ export class LwBlog extends LitElement {
     lw-blog-search {
       display: block;
       position: sticky;
-      top: var(--blog-search-top, 40px);
+      top: var(--blog-search-top, 34px);
       z-index: 100;
       background: #fff;
-      padding: 1rem 0 0.5rem;
-      box-shadow: 0 6px 12px -2px rgba(255,255,255,1),
-                  0 10px 16px -4px rgba(255,255,255,0.9);
+      padding: 32px 0;
+      /* box-shadow: 0 6px 12px -2px rgba(255,255,255,1),
+                  0 10px 16px -4px rgba(255,255,255,0.9); */
     }
 
     lw-blog-list {
@@ -135,43 +125,53 @@ export class LwBlog extends LitElement {
       z-index: 0;
     }
 
+    @media (max-width: 1023px) {
+      /* On mobile, only the header (logo/title/branding) floats — the
+         demo-note / settings strip and the search bar scroll with the page. */
+      lw-insights-bar { position: static; }
+      lw-blog-search  { position: static; }
+      lw-header {
+        position: sticky;
+        top: 0;
+        z-index: 600;
+      }
+    }
+
     @media (max-width: 768px) {
-      .page { padding: var(--blog-page-padding, 0 1.25rem 3rem); }
+      /* Extra bottom room so the floating insights dock doesn't hide content. */
+      .page { padding: var(--blog-page-padding, 0 1.25rem 9rem); }
     }
 
     @media (max-width: 480px) {
-      .page          { padding: var(--blog-page-padding, 0 1rem 2.5rem); }
+      .page         { padding: var(--blog-page-padding, 0 1rem 8.5rem); }
       lw-blog-search { padding: 0.75rem 0 0.25rem; }
     }
   `;
 
   constructor() {
     super();
-    // content
-    this.data              = null;
-    // connection config
+    // insights-bar
+    this.demoNote          = '';
+    this.blogs             = '';
+    this.updatedAt         = '';
+    this.searches          = '';
+    // header
+    this.logoSrc    = '';
+    this.barLogoSrc = '';
+    this.logoHref   = '';
+    // API / nav
     this.baseUrl           = '';
     this.apiKey            = '';
     this.detailUrl         = '';
-    // insights bar
-    this.demoNote          = '';
-    this.barLogoSrc        = '';
-    this.blogs             = '';
-    this.updated           = '';
-    this.searches          = '';
-    this.unblocked         = '';
-    // header
-    this.logoSrc           = '';
-    this.logoHref          = '';
-    // summary
-    this.summaryHeading    = 'Overview';
-    this.summaryCitations  = 'chip';
-    this.summaryParagraphs = [];
-    // search bar
+    // search
     this.searchPlaceholder = 'Search';
     this.sliderMax         = 1;
     this.sliderStep        = 0.1;
     this.sliderLabel       = '';
+    // summary
+    this.summaryHeading    = 'Overview';
+    this.summaryCitations  = 'chip';
+    this.summaryParagraphs = [];
     // list
     this.defaultView       = 'list';
     this.defaultSort       = 'newest';
@@ -186,41 +186,39 @@ export class LwBlog extends LitElement {
   _onSearchTimeUpdate(e) { this._searchTime    = e.detail.ms;    }
 
   render() {
-    // `data` from lw-blog-page takes precedence; fall back to attributes.
-    const d = this.data ?? {};
-    const summaryParagraphs = d.summaryParagraphs ?? this.summaryParagraphs;
     return html`
       <lw-insights-bar
-        demo-note=${d.demoNote     ?? this.demoNote}
-        logo-src=${d.barLogoSrc    ?? this.barLogoSrc}
-        blogs=${d.blogs            ?? this.blogs}
-        updated=${d.updated        ?? this.updated}
-        searches=${d.searches      ?? this.searches}
-        unblocked=${d.unblocked    ?? this.unblocked}
+        demo-note=${this.demoNote}
+        logo-src=${this.barLogoSrc}
+        blogs=${this.blogs}
+        updated=${this.updatedAt}
+        searches=${this.searches}
+        unblocked=${this.unblocked}
       ></lw-insights-bar>
 
       <lw-header
-        logo-src=${d.logoSrc       ?? this.logoSrc}
-        logo-href=${d.logoHref     ?? this.logoHref}
+        logo-src=${this.logoSrc}
+        logo-href=${this.logoHref}
       ></lw-header>
 
       <div class="page">
         <lw-blog-search
-          placeholder=${d.searchPlaceholder ?? this.searchPlaceholder}
-          slider-max=${d.sliderMax   ?? this.sliderMax}
-          slider-step=${d.sliderStep ?? this.sliderStep}
-          slider-label=${d.sliderLabel ?? this.sliderLabel}
+          placeholder=${this.searchPlaceholder}
+          .value=${this._searchQuery}
+          slider-max=${this.sliderMax}
+          slider-step=${this.sliderStep}
+          slider-label=${this.sliderLabel}
           .searchTime=${this._searchTime}
           @search-change=${this._onSearchChange}
           @slider-change=${this._onSliderChange}
         ></lw-blog-search>
 
-        ${summaryParagraphs?.length
+        ${this.summaryParagraphs?.length
           ? html`
               <lw-blog-overview
-                heading=${d.summaryHeading      ?? this.summaryHeading}
-                displayCitations=${d.summaryCitations ?? this.summaryCitations}
-                .paragraphs=${summaryParagraphs}
+                heading=${this.summaryHeading}
+                displayCitations=${this.summaryCitations}
+                .paragraphs=${this.summaryParagraphs}
               ></lw-blog-overview>
             `
           : ''}
@@ -229,10 +227,11 @@ export class LwBlog extends LitElement {
           base-url=${this.baseUrl}
           api-key=${this.apiKey}
           detail-url=${this.detailUrl}
-          default-view=${d.defaultView ?? this.defaultView}
-          default-sort=${d.defaultSort ?? this.defaultSort}
+          default-view=${this.defaultView}
+          default-sort=${this.defaultSort}
           .searchQuery=${this._searchQuery}
           .semanticRatio=${this._semanticRatio}
+          @search-change=${this._onSearchChange}
           @search-time-update=${this._onSearchTimeUpdate}
         ></lw-blog-list>
       </div>

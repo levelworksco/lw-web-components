@@ -2,8 +2,6 @@ import { LitElement, html, css, repeat }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 import '../lw-blog-list-item/lw-blog-list-item.js';
 
-const PAGE_LIMIT = 20;
-
 function mapHit(hit) {
   // Fix protocol-relative image URLs (//cdn/...) → (https://cdn/...)
   const image = (hit.imageUrl ?? '').replace(/^\/\//, 'https://');
@@ -51,7 +49,7 @@ const GLUE_WORD_RE = new RegExp(`\\b(${GLUE_WORDS})([A-Z][a-z])`, 'g');
 // knees...", "...kneeling.TheGreenStalk Ultimate..."). Insert the handful of
 // safely-detectable missing spaces: glued function words, and punctuation
 // glued directly to the next word/quote.
-export function cleanCrawledText(raw) {
+function cleanCrawledText(raw) {
   const text = (raw ?? '').trim();
   if (!text) return '';
   return text
@@ -67,7 +65,7 @@ export function cleanCrawledText(raw) {
 // those fully-glued spots (almost always a stripped <p>/<h2> boundary) start
 // a new paragraph. This avoids fragmenting real multi-sentence paragraphs
 // into one paragraph per sentence.
-export function formatCrawledText(raw) {
+function formatCrawledText(raw) {
   const cleaned = cleanCrawledText(raw);
   if (!cleaned) return [];
 
@@ -82,16 +80,20 @@ export function formatCrawledText(raw) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// COMPONENT: <lw-blog-list>
-// Supports list/grid toggle, sort dropdown, and category sidebar.
+// COMPONENT: <lw-blog-list-static>
+//
+// Same layout as <lw-blog-list> (list/grid toggle, sort dropdown,
+// category sidebar) but accepts a static hits array instead of
+// making API requests.
+//
+// PROPERTIES:
+//   hits         (Array)   — raw hit objects from the search API
 //
 // ATTRIBUTES:
-//   base-url     (String)  — search API endpoint
-//   api-key      (String)  — X-API-KEY header value
 //   detail-url   (String)  — page navigated to on post click
 //   default-view (String)  — 'list' | 'grid'
-//   default-sort (String)  — initial sort key (see SORT_OPTIONS)
-//   + all --pl-* CSS custom properties
+//   default-sort (String)  — initial sort key
+//   + all --pl-* CSS custom properties (same as lw-blog-list)
 // ─────────────────────────────────────────────────────────────
 
 const SORT_OPTIONS = [
@@ -106,36 +108,43 @@ const SORT_OPTIONS = [
   { value: 'shortest',  label: 'Shortest First' },
 ];
 
-export class LwBlogList extends LitElement {
+const EMPTY_STATE_SUGGESTIONS = [
+  'How often should I water my plants?',
+  'Which plants grow best in summer?',
+  'How can I protect plants from heat?',
+  'Why are my plant leaves turning yellow?',
+];
+
+export class LwBlogListStatic extends LitElement {
 
   static properties = {
-    // May be supplied by a parent for a pre-fetched result set. When omitted,
-    // the component loads posts from base-url as before.
-    posts:      { type: Array },
-    loading:    { state: true },
-    totalCount: { state: true },
+    // input — raw hits from the search API
+    hits: { type: Array },
+
+    // internal derived state
+    _posts:      { state: true },
+    _categories: { state: true },
 
     defaultView: { attribute: 'default-view' },
     defaultSort: { attribute: 'default-sort' },
+    detailUrl:   { attribute: 'detail-url'   },
+    // Hide the "N results / view toggle / sort" strip (e.g. for search results).
+    hideHeader:  { type: Boolean, attribute: 'hide-header', reflect: true },
+    // Hide each item's category pill (e.g. split/compare view, where the
+    // narrow columns don't have room for it).
+    hideCategory: { type: Boolean, attribute: 'hide-category' },
+    // Show a "1. 2. 3." rank before each list title (search results).
+    numbered:    { type: Boolean, attribute: 'numbered' },
+    // Total blogs available (e.g. estimatedTotalHits) for the "N results"
+    // count — so it reflects the full total, not just the loaded page.
+    totalCount:  { type: Number, attribute: 'total-count' },
 
-    // API configuration
-    baseUrl:   { attribute: 'base-url'   },
-    apiKey:    { attribute: 'api-key'    },
-    detailUrl: { attribute: 'detail-url' },
-    autoLoad:  { type: Boolean, attribute: 'auto-load' },
-
-    // set from parent to trigger search
-    searchQuery:   { type: String },
-    semanticRatio: { type: Number },
-
-    // internal state
+    // internal UI state
     _view:           { state: true },
     _sort:           { state: true },
     _sortOpen:       { state: true },
     _mobileFiltersOpen: { state: true },
     _activeCategory: { state: true },
-    _categories:     { state: true },
-    _hasMore:        { state: true },
 
     // container
     containerWidth:        { attribute: 'container-width'         },
@@ -207,86 +216,69 @@ export class LwBlogList extends LitElement {
 
   constructor() {
     super();
-    this.posts           = [];
+    this.hits            = [];
+    this._posts          = [];
     this._categories     = [];
-    this.loading         = false;
-    this.totalCount      = 0;
     this.defaultView     = 'list';
     this.defaultSort     = 'newest';
-    this.baseUrl         = '';
-    this.apiKey          = '';
     this.detailUrl       = '';
-    this.autoLoad        = true;
+    this.hideHeader      = false;
+    this.hideCategory    = false;
+    this.numbered        = false;
+    this.totalCount      = null;
     this._view           = 'list';
     this._sort           = 'newest';
     this._sortOpen       = false;
     this._mobileFiltersOpen = false;
     this._closeSort      = null;
     this._activeCategory = 'all';
-    this.searchQuery     = '';
-    this.semanticRatio   = 0;
-    this._page           = 1;
-    this._hasMore        = false;
-    this._debounceTimer  = null;
-    this._abortCtrl      = null;
-    this._observer       = null;
-    this._categoryTotals = new Map(); // cache: category value → global total count
   }
 
-  // Builds the sidebar list immediately from loaded posts, then fires
-  // _fetchMissingTotals to replace placeholder counts with real API totals.
-  _buildCategories(posts, allTotal) {
+  // Rebuild _posts and _categories whenever hits changes.
+  updated(changed) {
+    if (changed.has('hits')) {
+      this._posts      = (this.hits ?? []).map(mapHit);
+      this._categories = this._buildCategories(this._posts);
+      // Reset category filter when the data set changes.
+      this._activeCategory = 'all';
+    }
+  }
+
+  // ── Categories ───────────────────────────────────────────────
+
+  _buildCategories(posts) {
     const seen = new Set();
     posts.forEach(p => { if (p.category && p.category !== 'all') seen.add(p.category); });
 
     const cats = [...seen].map(value => ({
       value,
       label: value,
-      // Use cached total if available, fall back to loaded-post count as placeholder
-      count: this._categoryTotals.get(value)
-        ?? posts.filter(p => p.category === value).length,
+      count: posts.filter(p => p.category === value).length,
     })).sort((a, b) => b.count - a.count);
 
-    return [{ value: 'all', label: 'All', count: allTotal }, ...cats];
-  }
-
-  // Fetches global total count for each category not yet cached, in parallel.
-  // Uses limit:1 so only estimatedTotalHits is needed — minimal payload.
-  async _fetchMissingTotals(categoryValues) {
-    const missing = categoryValues.filter(v => !this._categoryTotals.has(v));
-    if (!missing.length) return;
-
-    await Promise.all(missing.map(async cat => {
-      try {
-        const res = await fetch(this.baseUrl, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-KEY': this.apiKey },
-          body:    JSON.stringify({ query: '', page: 1, limit: 1, semanticRatio: 0, filter: { topics: [cat] } }),
-        });
-        const data = await res.json();
-        this._categoryTotals.set(cat, data.estimatedTotalHits ?? 0);
-      } catch {
-        this._categoryTotals.set(cat, 0);
-      }
-    }));
-
-    // Re-render categories with real totals now in cache
-    this._categories = this._buildCategories(this.posts, this.totalCount);
+    return [{ value: 'all', label: 'All', count: posts.length }, ...cats];
   }
 
   _pickCategory(value) {
     this._activeCategory = value;
     this._mobileFiltersOpen = false;
     document.removeEventListener('click', this._closeMobileFilters);
-    this.dispatchEvent(new CustomEvent('lw-category-change', { detail: { category: value }, bubbles: true, composed: true }));
-    this._resetAndFetch();
+    this.dispatchEvent(new CustomEvent('lw-category-change', {
+      detail: { category: value }, bubbles: true, composed: true,
+    }));
   }
 
-  _onPostClick(e) {
-    // A parent can consume the bubbling event when no detail URL is
-    // configured (for example, a search modal with its own navigation).
-    if (!this.detailUrl) return;
+  _pickEmptySuggestion(text) {
+    this.dispatchEvent(new CustomEvent('search-change', {
+      detail: { value: text },
+      bubbles: true,
+      composed: true,
+    }));
+  }
 
+  // ── Post click ───────────────────────────────────────────────
+
+  _onPostClick(e) {
     const p = e.detail.post;
     const detail = {
       title:      p.title,
@@ -310,92 +302,10 @@ export class LwBlogList extends LitElement {
     window.location.href = this.detailUrl;
   }
 
-  _debounceFetch() {
-    clearTimeout(this._debounceTimer);
-    this._debounceTimer = setTimeout(() => this._resetAndFetch(), 500);
-  }
-
-  _resetAndFetch() {
-    this._page    = 1;
-    this._hasMore = false;
-    this.posts    = [];
-    this._fetchResults(this.searchQuery, 1, this.semanticRatio);
-  }
-
-  async _fetchResults(query, page, ratio) {
-    if (this._abortCtrl) this._abortCtrl.abort();
-    this._abortCtrl = new AbortController();
-    this.loading = true;
-
-    try {
-      const body = { query, page, limit: PAGE_LIMIT, semanticRatio: ratio };
-      if (this._activeCategory && this._activeCategory !== 'all') {
-        body.filter = { topics: [this._activeCategory] };
-      }
-
-      const res = await fetch(this.baseUrl, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-KEY': this.apiKey },
-        body:    JSON.stringify(body),
-        signal:  this._abortCtrl.signal,
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-      const hits = Array.isArray(data.hits) ? data.hits.map(mapHit) : [];
-
-      this.posts      = page === 1 ? hits : [...this.posts, ...hits];
-      this._hasMore   = hits.length === PAGE_LIMIT;
-      this.totalCount = data.estimatedTotalHits ?? this.posts.length;
-
-      // Show sidebar immediately with placeholder counts, then update with real totals
-      this._categories = this._buildCategories(this.posts, this.totalCount);
-      const catValues  = this._categories.filter(c => c.value !== 'all').map(c => c.value);
-      this._fetchMissingTotals(catValues); // non-blocking; re-renders when done
-      this.dispatchEvent(new CustomEvent('search-time-update', {
-        detail: { ms: data.processingTimeMs ?? 0 }, bubbles: true, composed: true,
-      }));
-
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      console.error('Search error:', err);
-    } finally {
-      if (!this._abortCtrl?.signal.aborted) this.loading = false;
-    }
-  }
-
-  _setupObserver() {
-    if (this._observer) this._observer.disconnect();
-    const sentinel = this.shadowRoot?.querySelector('.pl-sentinel');
-    if (!sentinel) return;
-    this._observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && this._hasMore && !this.loading) {
-        this._page += 1;
-        this._fetchResults(this.searchQuery, this._page, this.semanticRatio);
-      }
-    }, { threshold: 0 });
-    this._observer.observe(sentinel);
-  }
-
-  firstUpdated() {
-    if (this.autoLoad) this._fetchResults('', 1, 0);
-  }
-
-  updated(changed) {
-    // Only debounce when the value actually changed from a real prior value (not initial undefined)
-    if ((changed.has('searchQuery')   && changed.get('searchQuery')   !== undefined) ||
-        (changed.has('semanticRatio') && changed.get('semanticRatio') !== undefined)) {
-      this._debounceFetch();
-    }
-    if (changed.has('posts') || changed.has('_hasMore')) {
-      this._setupObserver();
-    }
-  }
-
   // ── Sort ────────────────────────────────────────────────────
+
   get _sortedPosts() {
-    const posts = [...this.posts];
+    const posts = [...this._posts];
     switch (this._sort) {
       case 'newest':    return posts.sort((a, b) => new Date(b.date) - new Date(a.date));
       case 'oldest':    return posts.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -433,6 +343,10 @@ export class LwBlogList extends LitElement {
     this._sort     = value;
     this._sortOpen = false;
     document.removeEventListener('click', this._closeSort);
+    // Lets a parent mirror the choice onto another list (compare view).
+    this.dispatchEvent(new CustomEvent('sort-change', {
+      detail: { sort: value }, bubbles: true, composed: true,
+    }));
   }
 
   _toggleMobileFilters(e) {
@@ -461,15 +375,20 @@ export class LwBlogList extends LitElement {
     super.disconnectedCallback();
     document.removeEventListener('click', this._closeSort);
     document.removeEventListener('click', this._closeMobileFilters);
-    if (this._observer) this._observer.disconnect();
-    if (this._abortCtrl) this._abortCtrl.abort();
-    clearTimeout(this._debounceTimer);
   }
 
   // ── View toggle ─────────────────────────────────────────────
-  _setView(v) { this._view = v; }
+
+  _setView(v) {
+    this._view = v;
+    // Lets a parent mirror the choice onto another list (compare view).
+    this.dispatchEvent(new CustomEvent('view-change', {
+      detail: { view: v }, bubbles: true, composed: true,
+    }));
+  }
 
   // ── Icon SVGs ───────────────────────────────────────────────
+
   _listIcon(active) {
     return html`
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="display:block">
@@ -508,6 +427,13 @@ export class LwBlogList extends LitElement {
         <path d="M3 5h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
         <path d="M5.5 9h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
         <path d="M8 13h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>`;
+  }
+
+  _sparkIcon() {
+    return html`
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:block">
+        <path d="M12 2l1.6 5.2a4 4 0 0 0 2.6 2.6L21.5 12l-5.3 2.2a4 4 0 0 0-2.6 2.6L12 22l-1.6-5.2a4 4 0 0 0-2.6-2.6L2.5 12l5.3-2.2a4 4 0 0 0 2.6-2.6L12 2z"/>
       </svg>`;
   }
 
@@ -596,11 +522,16 @@ export class LwBlogList extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.75rem 0 0.75rem;
+      height: 44px;
+      padding: 0;
+      margin-bottom: 24px;
       border-top: 1px solid var(--pl-header-border-color, #e0e0e0);
       border-bottom: 1px solid var(--pl-header-border-color, #e0e0e0);
       gap: 0.75rem;
+      box-sizing: border-box;
     }
+    /* Hide the strip on all widths when requested (search results). */
+    :host([hide-header]) .pl-header { display: none; }
 
     .pl-result-count {
       font-size: var(--pl-header-font-size, 13px);
@@ -624,14 +555,13 @@ export class LwBlogList extends LitElement {
       gap: 2px;
       padding: 4px;
       border-radius: 999px;
-      background: #f3f4f6;
     }
 
     .pl-toggle button {
       background: none;
       border: none;
-      width: 32px;
-      height: 32px;
+      width: 40px;
+      height: 40px;
       padding: 0;
       cursor: pointer;
       display: flex;
@@ -663,48 +593,42 @@ export class LwBlogList extends LitElement {
       position: relative;
     }
 
-    /* Resting state: neutral outline. The accent is reserved for the
-       open state, so the control only lights up while it is in use. */
+    /* Desktop: a neutral pill showing the selected sort option + icon; it turns
+       orange only while its dropdown is open. Mobile collapses it to an
+       icon-only button (see the 768px block). */
     .pl-sort-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
-      height: 38px;
-      padding: 0 16px;
-      border: 1px solid var(--pl-sort-border, #d5d9e0);
+      gap: 0.4rem;
+      height: 24px;
+      padding: 0 0.9rem;
+      border: 1px solid #e5e7eb;
       border-radius: 999px;
-      background: var(--pl-sort-bg, #ffffff);
+      background: #fff;
       font-family: 'Inter', sans-serif;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      color: var(--pl-sort-color, #5b6478);
+      color: #667085;
       cursor: pointer;
       white-space: nowrap;
       transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    .pl-sort-btn:hover { border-color: var(--pl-sort-border-hover, #b9c0cc); }
-
-    /* Open state: border and label take the accent. */
+    .pl-sort-btn:hover { background: #f9fafb; }
+    /* Open: orange border, text and a light orange fill. */
     .pl-sort-btn.is-open {
-      border-color: var(--pl-sort-accent, #F58635);
-      color:        var(--pl-sort-accent, #F58635);
+      border-color: #f58b2c;
+      color: #f58b2c;
+      background: #fff3e8;
     }
-
-    /* The label shows the current sort; the caret is redundant next to
-       the up/down sort glyph, so only that is kept. */
-    .pl-sort-label { display: inline; }
+    /* The caret is unused — the sort icon alone conveys the dropdown. */
     .pl-sort-caret { display: none; }
+    .pl-sort-label { display: inline; }
     .pl-sort-icon {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       color: inherit;
-    }
-    .pl-sort-caret {
-      align-items: center;
-      justify-content: center;
-      color: #667085;
     }
     .pl-filter-btn {
       display: flex;
@@ -729,7 +653,7 @@ export class LwBlogList extends LitElement {
       position: absolute;
       top: calc(100% + 6px);
       right: 0;
-      min-width: 200px;
+      min-width: 160px;
       background: #fff;
       border: 1px solid #e5e5e5;
       border-radius: 8px;
@@ -751,26 +675,22 @@ export class LwBlogList extends LitElement {
     .pl-sort-option {
       display: block;
       width: 100%;
-      padding: 11px 18px;
+      padding: 9px 14px;
       background: none;
       border: none;
       text-align: left;
       font-family: 'Inter', sans-serif;
-      font-size: 15px;
-      color: #1a1a1a;
+      font-size: 14px;
+      color: #667085;
       cursor: pointer;
       transition: background 0.1s, color 0.1s;
     }
     .pl-sort-option:hover { background: #f5f5f5; }
+    /* Selected option: orange text on a light orange row. */
     .pl-sort-option.selected {
+      background: #fff3e8;
+      color: #f58b2c;
       font-weight: 600;
-      color: var(--pl-sort-accent, #F58635);
-      /* Tint derived from the accent itself, so recolouring the accent
-         carries the row with it. The flat value is the fallback for
-         browsers without color-mix(). */
-      background: #FEF3EB;
-      background: var(--pl-sort-selected-bg,
-        color-mix(in srgb, var(--pl-sort-accent, #F58635) 14%, transparent));
     }
 
     /* ── List / Grid ── */
@@ -786,15 +706,77 @@ export class LwBlogList extends LitElement {
     @media (max-width: 600px) { .pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 380px) { .pl-grid { grid-template-columns: minmax(0, 1fr); } }
 
-    .pl-loading,
     .pl-empty {
-      padding: 2.5rem 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      min-height: 440px;
+      padding: 3rem 1rem 2rem;
       text-align: center;
-      color: #bbb;
+      color: #1f2937;
       font-size: 0.85rem;
     }
 
-    .pl-sentinel { height: 1px; }
+    .pl-empty-message {
+      margin-top: auto;
+      font-size: 1.9rem;
+      font-weight: 400;
+      color: #5f6672;
+      letter-spacing: -0.02em;
+    }
+
+    .pl-empty-suggestions {
+      width: min(100%, 440px);
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .pl-empty-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.2;
+    }
+
+    .pl-empty-chip {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      padding: 0.9rem 1.2rem;
+      border: 1px solid #f58b2c;
+      border-radius: 999px;
+      background: #fff;
+      color: #6b7280;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .pl-empty-chip:hover {
+      background: #fff8f1;
+      color: #374151;
+      box-shadow: 0 4px 12px rgba(245, 139, 44, 0.12);
+    }
+
+    .pl-empty-chip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #f58b2c;
+      flex-shrink: 0;
+    }
+
+    .pl-empty-chip-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .pl-footer {
       padding: 1rem 0;
@@ -860,7 +842,6 @@ export class LwBlogList extends LitElement {
     @media (max-width: 900px) {
       .pl-outer   { gap: 2rem; }
       .pl-sidebar { width: 160px; }
-      .pl-header  { padding: 0.3rem 0; }
     }
 
     @media (max-width: 768px) {
@@ -869,49 +850,61 @@ export class LwBlogList extends LitElement {
       .pl-sidebar-title { font-size: 0.95rem; }
       .pl-sidebar-item  { font-size: 0.75rem; }
       .pl-filter       { display: block; }
-      .pl-sort-btn { padding: 0 12px; font-size: 13px; }
-      .pl-sort-option { font-size: 14px; padding: 10px 14px; }
-      .pl-header  { padding: 0.45rem 0; }
       .pl-result-count { font-size: 13px; }
+
+      /* Responsive: icon only — drop the label and the orange pill, back to
+         the same plain grey circle as the view-toggle/filter buttons. */
+      .pl-sort-label { display: none; }
+      .pl-sort-btn {
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: #f3f4f6;
+        color: #667085;
+      }
+      .pl-sort-btn:hover { background: #e9eaec; }
+      /* Icon-only here, so the open state matches the filter button's. */
+      .pl-sort-btn.is-open { background: #eef2f6; color: #667085; }
     }
+
+    @media (max-width: 768px) {
+    .pl-filter-btn   { width: 32px; height: 32px;}
 
     @media (max-width: 600px) {
       .pl-outer        { flex-direction: column; }
       .pl-sidebar      { display: none; }
-      .pl-header       { gap: 0.75rem; padding: 0.5rem 0; }
+      .pl-header       { gap: 0.75rem; height: 40px; }
       .pl-result-count { font-size: 11px; flex: 1; min-width: 0; }
       .pl-header-right { gap: 0.4rem; }
       .pl-toggle       { padding: 0 3px; }
       .pl-toggle button,
+      .pl-sort-btn,
       .pl-filter-btn   { width: 24px; height: 24px; min-width: 24px; color: #667085; }
-      .pl-sort-btn {
-        width: 28px;
-        min-width: 28px;
-        height: 28px;
-        padding: 0;
-        gap: 0;
-      }
-      .pl-sort-label,
-      .pl-sort-caret { display: none; }
       .pl-toggle button svg,
       .pl-sort-btn svg { width: 18px; height: 18px; }
       .pl-grid         { gap: 0.75rem; }
-    }
-
-    @media (max-width: 768px) {
-      .pl-sort-label,
-      .pl-sort-caret { display: none; }
-      .pl-sort-btn {
-        width: 38px;
-        min-width: 38px;
-        padding: 0;
-        gap: 0;
+      .pl-empty {
+        min-height: 360px;
+        gap: 1.5rem;
+        padding: 2rem 0.5rem 1rem;
+      }
+      .pl-empty-message { font-size: 1.1rem; }
+      .pl-empty-suggestions { width: 100%; }
+      .pl-empty-title { font-size: 1.05rem; }
+      .pl-empty-chip {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
       }
     }
 
     @media (max-width: 380px) {
       .pl-header { gap: 0.5rem; }
       .pl-header-right { gap: 0.3rem; }
+      .pl-toggle button,
+      .pl-sort-btn,
+      .pl-filter-btn { width: 24px; height: 24px; min-width: 24px; color: #667085; }
     }
   `;
 
@@ -920,25 +913,46 @@ export class LwBlogList extends LitElement {
     const sorted = this._activeCategory === 'all'
       ? this._sortedPosts
       : this._sortedPosts.filter(p => p.category === this._activeCategory);
-    const total  = this.totalCount > sorted.length ? this.totalCount : 0;
-    const hasResults = sorted.length > 0;
-    const countValue = total || sorted.length;
-    const countText = `${countValue} Blog${countValue !== 1 ? 's' : ''}`;
 
-    // Initial load (no posts yet): show full-page spinner.
-    // Lazy load (posts already visible): keep existing items, show bottom spinner.
-    const isInitialLoad = this.loading && this.posts.length === 0;
-    const items = isInitialLoad
-      ? html`<div class="pl-loading">Loading posts…</div>`
-      : sorted.length === 0
-        ? html`<div class="pl-empty">No posts found.</div>`
-        : repeat(
-            sorted,
-            post => post.id,
-            post => html`
-              <lw-blog-list-item .post=${{ ...post, postType: this._categories.length > 2 ? post.postType : '' }} .view=${this._view} @post-click=${this._onPostClick}></lw-blog-list-item>
-            `
-          );
+    const hasResults = sorted.length > 0;
+    // For the "all" view show the full total (loaded + not-yet-loaded);
+    // a category filter falls back to the loaded/visible count.
+    const count = (this._activeCategory === 'all' && this.totalCount != null)
+      ? this.totalCount
+      : sorted.length;
+    const countText = `${count} Blog${count !== 1 ? 's' : ''}`;
+
+    const items = sorted.length === 0
+      ? html`
+          <div class="pl-empty">
+            <div class="pl-empty-message">No results found!</div>
+            <div class="pl-empty-suggestions">
+              <div class="pl-empty-title">Try searching for:</div>
+              ${EMPTY_STATE_SUGGESTIONS.map(text => html`
+                <button class="pl-empty-chip" @click=${() => this._pickEmptySuggestion(text)}>
+                  <span class="pl-empty-chip-icon">${this._sparkIcon()}</span>
+                  <span class="pl-empty-chip-text">${text}</span>
+                </button>
+              `)}
+            </div>
+          </div>
+        `
+      : repeat(
+          sorted,
+          post => post.id,
+          (post, i) => html`
+            <lw-blog-list-item
+              .post=${{
+                ...post,
+                category: this.hideCategory ? '' : post.category,
+                postType: this.hideCategory || this._categories.length <= 2 ? '' : post.postType,
+              }}
+              .view=${this._view}
+              .number=${this.numbered && !isGrid ? i + 1 : null}
+              @post-click=${this._onPostClick}
+            ></lw-blog-list-item>
+          `
+        );
 
     const sidebar = this._categories.length > 2 ? html`
       <aside class="pl-sidebar">
@@ -981,6 +995,7 @@ export class LwBlogList extends LitElement {
                       </button>
                     `}
               </div>
+
               <!-- Sort dropdown -->
               <div class="pl-sort">
                 <button class="pl-sort-btn ${this._sortOpen ? 'is-open' : ''}" @click=${this._toggleSortMenu}>
@@ -1028,15 +1043,7 @@ export class LwBlogList extends LitElement {
             ${items}
           </div>
 
-          ${this._hasMore ? html`<div class="pl-sentinel"></div>` : ''}
-
-          ${this.loading && this.posts.length > 0
-            ? html`<div class="pl-loading">Loading more…</div>`
-            : ''}
-
-          ${!this.loading && hasResults ? html`
-            <div class="pl-footer">Showing ${sorted.length} posts</div>
-          ` : ''}
+          ${hasResults ? html`<div class="pl-footer">Showing ${sorted.length} Blog${sorted.length !== 1 ? 's' : ''}</div>` : ''}
 
         </div>
 
@@ -1046,7 +1053,4 @@ export class LwBlogList extends LitElement {
   }
 }
 
-customElements.define('lw-blog-list', LwBlogList);
-
-
-
+customElements.define('lw-blog-list-static', LwBlogListStatic);

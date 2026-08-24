@@ -1,6 +1,16 @@
 import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 
+// Standard "broken/missing image" glyph (picture frame + mountain + sun),
+// shown when a post has no image or its image fails to load.
+const IMAGE_PLACEHOLDER_ICON = html`
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2.5" y="3.5" width="19" height="17" rx="2" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="8" cy="9" r="1.75" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M3 16.5l5.5-5.5a1.5 1.5 0 0 1 2.12 0L15 15.38M13.5 13.5l1.88-1.88a1.5 1.5 0 0 1 2.12 0L21 15.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+`;
+
 // ─────────────────────────────────────────────────────────────
 // COMPONENT: <lw-blog-list-item>
 // Renders one post in list OR grid mode.
@@ -9,8 +19,10 @@ import { LitElement, html, css }
 export class LwBlogListItem extends LitElement {
 
   static properties = {
-    post: { type: Object },
-    view: { type: String }, // 'list' | 'grid'
+    post:   { type: Object },
+    view:   { type: String }, // 'list' | 'grid'
+    number: { type: Number, reflect: true }, // rank shown before the title (null = none)
+    _imageError: { state: true },
   };
 
   static styles = css`
@@ -26,32 +38,46 @@ export class LwBlogListItem extends LitElement {
     ══════════════════════════════ */
     .list-row {
       display: flex;
-      gap: 1.25rem;
+      gap: 1.75rem;
       align-items: flex-start;
-      padding: var(--pl-card-padding, 1.6rem 0);
-      border-bottom: 1px solid var(--pl-card-divider, #e5e5e5);
+      padding: var(--pl-card-padding, 1.75rem 0);
+      border-bottom: 1px solid var(--pl-card-divider, #ececec);
     }
     :host(:last-child) .list-row { border-bottom: none; }
+    /* Numbered (search-result) list: the heading sits right under
+       "Further Reading", so trim the first item's top padding. */
+    :host([number="1"]) .list-row { padding-top: 0.3rem; }
 
     .list-content { flex: 1; min-width: 0; }
 
+    /* Numbered title: number in its own column so wrapped lines align under
+       the title text (a hanging indent), not under the number. */
+    .list-title.is-numbered {
+      display: flex;
+      gap: 0.4rem;
+      align-items: baseline;
+    }
+    .list-number      { color: var(--pl-title-color, #111); flex-shrink: 0; }
+    .list-title-text  { flex: 1; min-width: 0; }
+
     .list-title {
-      font-size:   var(--pl-title-font-size,   1.15rem);
+      font-size:   var(--pl-title-font-size,   18px);
       font-weight: var(--pl-title-font-weight, 700);
-      color:       var(--pl-title-color,       #111);
-      line-height: 1.3;
-      margin-bottom: 0.35rem;
+      color:       var(--pl-title-color,       #1a1a1a);
+      line-height: 1.25;
+      margin-top: 0;
+      margin-bottom: 0.7rem;
       cursor: pointer;
       transition: color 0.15s;
-      font-family: var(--pl-title-font-family, 'Source Sans 3', sans-serif);
+      font-family: var(--pl-title-font-family, 'Inter', sans-serif);
     }
     .list-title:hover { color: var(--pl-title-hover-color, #555); }
 
     .list-excerpt {
-      font-size:   var(--pl-excerpt-font-size, 14px);
-      color:       var(--pl-excerpt-color,     #444);
-      line-height: 1.65;
-      margin-bottom: 0.5rem;
+      font-size:   var(--pl-excerpt-font-size, 13px);
+      color:       var(--pl-excerpt-color,     #9aa1a8);
+      line-height: 1.55;
+      margin-bottom: 1rem;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -61,17 +87,24 @@ export class LwBlogListItem extends LitElement {
     .list-meta {
       display: flex;
       align-items: center;
-      gap: 0.3rem;
+      gap: 0.5rem;
       flex-wrap: wrap;
-      font-size: var(--pl-meta-font-size, 12px);
-      color:     var(--pl-meta-color,     #999);
+      font-size: var(--pl-meta-font-size, 13px);
+      color:     var(--pl-meta-color,     #888);
     }
+    /* Desktop shows the inline meta (under the text); the full-width one below
+       both content + image is mobile-only (enabled in the ≤600px block). */
+    .list-meta--full { display: none; }
 
     .list-image {
-      width:         var(--pl-image-width,  145px);
-      height:        var(--pl-image-height, 110px);
+      /* Fixed square on large screens (restored to the fluid 3/2 layout
+         below ≤900px) — smaller and consistent regardless of card width. */
+      width:         var(--pl-image-width, 180px);
+      max-width:     160px;
+      height:        120px;
+      aspect-ratio:  4 / 3;
       flex-shrink:   0;
-      border-radius: var(--pl-image-border-radius, 8px);
+      border-radius: var(--pl-image-border-radius, 16px);
       overflow:      hidden;
       background:    #ddd;
     }
@@ -115,12 +148,12 @@ export class LwBlogListItem extends LitElement {
       margin-bottom: 0.35rem;
       cursor: pointer;
       transition: color 0.15s;
-      font-family: var(--pl-title-font-family, 'Source Sans 3', sans-serif);
+      font-family: var(--pl-title-font-family, 'Inter', sans-serif);
     }
     .grid-title:hover { color: var(--pl-title-hover-color, #555); }
 
     .grid-excerpt {
-      font-size:   var(--pl-excerpt-font-size, 0.8rem);
+      font-size:   var(--pl-excerpt-font-size, 16px);
       color:       var(--pl-excerpt-color,     #555);
       line-height: 1.6;
       margin-bottom: 0.6rem;
@@ -165,30 +198,30 @@ export class LwBlogListItem extends LitElement {
     }
 
     /* shared meta pieces */
-    .meta-author   { color: var(--pl-author-color, #444); font-weight: 500; }
+    .meta-author   { color: var(--pl-author-color, #1a1a1a); font-weight: 600; }
     .meta-dot      { color: #ccc; }
     .meta-category {
       display: inline-block;
-      padding: 2px 10px;
-      border-radius: 5px;
-      background: var(--pl-category-bg, #fde8d4);
-      color: var(--pl-category-color, #e07630);
+      padding: 3px 12px;
+      border-radius: 6px;
+      background: var(--pl-category-bg, #FEF3EB);
+      color: var(--pl-category-color, #F58635);
       font-weight: 500;
-      font-size: 12px;
+      font-size: 13px;
       white-space: nowrap;
     }
 
     .meta-avatar {
-      width: 24px;
-      height: 24px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       object-fit: cover;
       flex-shrink: 0;
     }
 
     .meta-avatar-placeholder {
-      width: 24px;
-      height: 24px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       background: #e5e7eb;
       display: flex;
@@ -206,34 +239,82 @@ export class LwBlogListItem extends LitElement {
     }
 
     .image-placeholder {
-      width:100%; height:100%; background:#e8e4df;
-      display:flex; align-items:center; justify-content:center; font-size:1.5rem;
+      width:100%; height:100%; background:#e9ecef;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .image-placeholder svg { width: 32%; height: 32%; color: #adb5bd; }
+
+    @media (max-width: 900px) {
+      .list-title   { font-size: 16px; }
+      .list-excerpt { font-size: 13px; line-height: 1.2; }
+      .grid-excerpt { font-size: 12px; }
+      /* Restore the original fluid width/ratio below the large-device
+         breakpoint — the fixed 180px square is desktop-only. */
+      .list-image   {
+        width:        38%;
+        max-width:    320px;
+        height:       auto;
+        aspect-ratio: 3 / 2;
+      }
     }
 
     @media (max-width: 600px) {
-      .list-row     { gap: 0.9rem; padding: 1.2rem 0; }
-      .list-title   { font-size: 1rem; }
-      .list-excerpt { -webkit-line-clamp: 2; font-size: 13px; }
-      .list-image   { width: 110px; height: 82px; }
+      /* Wrap so the meta row can drop below; top-align text against the
+         (taller) image, tight gap between the row and the meta below it. */
+      .list-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 0.3rem;
+        padding: 1.1rem 0;
+      }
+      .list-content { align-self: flex-start; }
+      .list-image   { align-self: flex-start; border-radius: 12px; }
+      .list-title   { font-size: 14px; }
+      /* Flow the number inline with the title text (like "1. Why Is My…")
+         so wrapped lines stay flush-left instead of hanging-indented under
+         the first line of text — too cramped at narrow widths. */
+      .list-title.is-numbered { display: block; }
+      .list-title.is-numbered .list-number { margin-right: 0.3rem; }
+      .list-excerpt { -webkit-line-clamp: 3; font-size: 11px; }
       .grid-image   { height: 150px; }
+
+      /* Meta becomes a full-width row below both the text and the image. */
+      .list-meta--inline { display: none; }
+      .list-meta--full {
+        display: flex;
+        flex-basis: 100%;
+        width: 100%;
+        margin-top: 0;
+      }
+
+      /* Readable author meta row (avatar + name • date • read time), matching
+         the design. The old 8px was for the since-removed side-by-side mobile
+         columns; mobile compare is now a single full-width tabbed column. */
+      .list-meta, .meta-row { font-size: 12px; gap: 0.4rem; }
+      .meta-category        { font-size: 11px; }
+      .list-meta .meta-avatar,
+      .list-meta .meta-avatar-placeholder { width: 22px; height: 22px; }
     }
 
     @media (max-width: 480px) {
-      .list-image   { width: 80px; height: 60px; }
-      .list-title   { font-size: 0.95rem; }
-      .list-excerpt { font-size: 12.5px; }
+      .list-excerpt { font-size: 11px; }
       .grid-image   { height: 130px; }
       .grid-title   { font-size: 0.88rem; }
-      .grid-excerpt { font-size: 0.75rem; -webkit-line-clamp: 3; }
+      .grid-excerpt { -webkit-line-clamp: 3; }
     }
 
+    /* Keep the compact side-by-side layout down to 320px (no stacking). */
     @media (max-width: 380px) {
-      .list-row   { flex-direction: column; }
-      .list-image { width: 100%; height: 160px; }
+      .list-image   { width: 42%; }
+      .list-excerpt { -webkit-line-clamp: 2 }
     }
   `;
 
-  constructor() { super(); this.post = {}; this.view = 'list'; }
+  constructor() { super(); this.post = {}; this.view = 'list'; this.number = null; this._imageError = false; }
+
+  // Reset the broken-image fallback when this instance gets reused for a
+  // different post (repeat() keys by post.id, but guard against reuse anyway).
+  updated(changed) { if (changed.has('post')) this._imageError = false; }
 
   _avatar(avatar, author) {
     if (!avatar) return '';
@@ -255,21 +336,29 @@ export class LwBlogListItem extends LitElement {
           ${this._avatar(avatar, author)}
           <span class="meta-author">${author}</span>
         </div>` : ''}
-      <div class="grid-meta-date-row">
-        <span>${date}</span>
-        ${readTime ? html`<span class="meta-dot">•</span><span>${readTime}</span>` : ''}
-      </div>
+      ${date || readTime ? html`
+        <div class="grid-meta-date-row">
+          ${date ? html`<span>${date}</span>` : ''}
+          ${date && readTime ? html`<span class="meta-dot">•</span>` : ''}
+          ${readTime ? html`<span>${readTime}</span>` : ''}
+        </div>` : ''}
       ${category && category !== 'all' ? html`<span class="grid-meta-category">${category}</span>` : ''}
     `;
   }
 
+  // Meta parts are joined by "•" separators. Each part carries its own
+  // *leading* dot, added only when something already precedes it — so an
+  // absent date (or author, or read time) never leaves a stray dot behind.
   _meta(author, avatar, date, readTime, category) {
+    const parts = [];
+    if (author)   parts.push(html`${this._avatar(avatar, author)}<span class="meta-author">${author}</span>`);
+    if (date)     parts.push(html`<span>${date}</span>`);
+    if (readTime) parts.push(html`<span>${readTime}</span>`);
+    if (category && category !== 'all') parts.push(html`<span class="meta-category">${category}</span>`);
+
     return html`
       <div class="meta-row">
-        ${author ? html`${this._avatar(avatar, author)}<span class="meta-author">${author}</span><span class="meta-dot">•</span>` : ''}
-        <span>${date}</span>
-        ${readTime ? html`<span class="meta-dot">•</span><span>${readTime}</span>` : ''}
-        ${category && category !== 'all' ? html`<span class="meta-dot">•</span><span class="meta-category">${category}</span>` : ''}
+        ${parts.map((part, i) => html`${i ? html`<span class="meta-dot">•</span>` : ''}${part}`)}
       </div>
     `;
   }
@@ -285,9 +374,10 @@ export class LwBlogListItem extends LitElement {
       category = '',
       image,
     } = this.post;
-    const img = image
-      ? html`<img src="${image}" alt="${title}" />`
-      : html`<div class="image-placeholder">📖</div>`;
+    const img = (image && !this._imageError)
+      ? html`<img src="${image}" alt="${title}"
+                  @error=${() => { this._imageError = true; }} />`
+      : html`<div class="image-placeholder">${IMAGE_PLACEHOLDER_ICON}</div>`;
 
     const onClick = () => this.dispatchEvent(new CustomEvent('post-click', {
       detail: { post: this.post }, bubbles: true, composed: true,
@@ -306,18 +396,29 @@ export class LwBlogListItem extends LitElement {
       `;
     }
 
-    // default: list
+    // default: list. The meta is rendered twice: inline under the text (desktop)
+    // and as a full-width row below both content + image (mobile). CSS shows one
+    // per breakpoint — see .list-meta--inline / --full.
+    const meta = this._meta(author, avatar, date, readTime, category);
     return html`
       <div class="list-row" style="cursor:pointer" @click=${onClick}>
         <div class="list-content">
-          <h3 class="list-title">${title}</h3>
+          <h3 class="list-title ${this.number != null ? 'is-numbered' : ''}">
+            ${this.number != null ? html`<span class="list-number">${this.number}.</span>` : ''}
+            <span class="list-title-text">${title}</span>
+          </h3>
           <div class="list-excerpt">${excerpt}</div>
-          <div class="list-meta">${this._meta(author, avatar, date, readTime, category)}</div>
+          <div class="list-meta list-meta--inline">${meta}</div>
         </div>
         <div class="list-image">${img}</div>
+        <div class="list-meta list-meta--full">${meta}</div>
       </div>
     `;
   }
 }
 
-customElements.define('lw-blog-list-item', LwBlogListItem);
+// Guarded so a page that already loaded another copy of this component
+// does not throw "already defined".
+if (!customElements.get('lw-blog-list-item')) {
+  customElements.define('lw-blog-list-item', LwBlogListItem);
+}

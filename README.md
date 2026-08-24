@@ -18,6 +18,9 @@ A collection of Lit-based web components for the Levelworks blog platform. Built
 | [lw-summary](lw-summary/) | `<lw-summary>` | Overview section with citation hover cards |
 | [lw-settings](lw-settings/) | `<lw-settings>` | Slide-out settings drawer for configuring search parameters |
 | [lw-slider](lw-slider/) | `<lw-slider>` | Reusable range slider primitive used by `<lw-settings>` |
+| [lw-ask-our-blog](lw-ask-our-blog/) | `<lw-ask-our-blog>` | Button that expands on hover into suggested questions, each opening the `<lw-ai-search>` modal |
+| [lw-ai-search](lw-ai-search/) | `<lw-ai-search>` | Full-screen AI search modal with its own trigger button |
+| [lw-ai-search](lw-ai-search/) | `<lw-ai-search>` | Launcher button that opens a full-screen AI search modal with results |
 
 ---
 
@@ -121,6 +124,7 @@ All props from every child component are available directly on `<lw-blog>`.
 | `base-url` | Search API endpoint |
 | `api-key` | `X-API-KEY` header value |
 | `detail-url` | Page navigated to when a post is clicked |
+| `query-param` | URL key read on load to seed the search box, default `q` — receives questions from `<lw-ask-our-blog>` |
 
 **Search bar**
 
@@ -340,6 +344,206 @@ Reusable range slider primitive.
 ```
 
 Event fired: `slider-change` (`detail.value`)
+
+---
+
+### `<lw-ask-our-blog>`
+
+A button that expands on hover into a stack of suggested questions plus a primary
+CTA. `btn-type` decides how it sits on the page:
+
+- **`float`** (default) — pinned to the bottom-right of the viewport, panel
+  opening upward above the button.
+- **`normal`** — a plain labelled button in normal document flow, placeable
+  anywhere on a page. No hover and no question panel: pressing it goes straight
+  to `href`, the same way `<lw-ai-search>` works. `questions`, `trigger` and the
+  panel attributes do not apply.
+
+In `float` mode the panel is sticky — it stays open after the pointer leaves, and
+only the close icon (or Escape) hides it. Clicking the circle navigates to `href`.
+Where there is no hover (touch devices, or `trigger="click"`) the first press
+opens the panel and the next one follows the link.
+
+Nothing navigates away. The button, the CTA and every question open the
+`<lw-ai-search>` modal on the same page — a question runs its search straight
+away, the button and CTA open it empty. This component never calls the search API
+itself; the modal does.
+
+`<lw-ai-search>` must be loaded on the page. It is deliberately **not** imported
+by `<lw-ask-our-blog>`, so a site can keep using its own copy without a duplicate
+custom-element definition:
+
+```html
+<script type="module" src="/lw-ask-our-blog/lw-ask-our-blog.js"></script>
+<script type="module" src="/lw-ai-search/lw-ai-search.js"></script>
+```
+
+If the page has no `<lw-ai-search>` element, a hidden one is created for its
+modal, with `search-base` / `search-key` / `search-index` forwarded from this tag;
+its own trigger button is suppressed through `::part(ai-search-container)`. If the
+`<lw-ai-search>` script is missing entirely, clicks fall back to `href` with the
+question in the query string, which `<lw-blog>` reads on load — see its
+`query-param` attribute.
+
+| Property | Type | Description | Default |
+|---|---|---|---|
+| `search-base` | String | Search API origin, forwarded to the modal | `""` |
+| `search-key` | String | `X-API-KEY` value, forwarded to the modal | `""` |
+| `search-index` | String | Index to search, forwarded to the modal | `"all"` |
+| `search-target` | String | CSS selector for the `<lw-ai-search>` to open | `"lw-ai-search"` |
+| `href` | String | Fallback page, used only when `<lw-ai-search>` is not loaded | `""` |
+| `target` | String | Link target for `href`, e.g. `"_blank"` | `""` |
+| `query-param` | String | Query key the question is passed in | `"q"` |
+| `questions` | Array | Suggestion strings, top to bottom — **max 4**, extras ignored | `[]` |
+| `cta-label` | String | Primary button label — the CTA always renders, with or without questions | `"Ask Our Blog"` |
+| `cta-href` | String | Renders the CTA as a link when set | `""` |
+| `cta-target` | String | Link target for `cta-href` | `""` |
+| `trigger` | String | `"hover"` or `"click"` | `"hover"` |
+| `btn-type` | String | `"float"` pins the circle to the viewport corner; `"normal"` renders a plain labelled button in flow | `"float"` |
+| `btn-label` | String | Label for the `normal` button | `"Search with AI"` |
+| `btn-subtext` | String | Optional line under the `normal` button | `""` |
+| `open` | Boolean | Panel state, reflected as an attribute | `false` |
+| `label` | String | aria-label for the floating button | `"Ask our blog"` |
+
+```html
+<lw-ask-our-blog
+  search-base="https://discoverai.levelworks.co"
+  search-key="YOUR_API_KEY"
+  search-index="all"
+  href="/lw-blog/lw-blog"
+  cta-href="/lw-blog/lw-blog"
+  questions='["How long does it take to integrate?",
+              "Does it work with Webflow?",
+              "Can I see a live demo?",
+              "How does AI Search work on my website?"]'
+  style="--lw-ask-accent: #1E7A4A;"
+></lw-ask-our-blog>
+```
+
+Questions come from the tag only — there are no built-in defaults. Up to four can
+be set. Anything past the fourth is dropped
+(with a console warning). The **Ask Our Blog** button is not one of the four — it
+always renders below them, and `cta-label` only changes its wording.
+
+CSS variables — shared: `--lw-ask-accent`, `--lw-ask-accent-hover`.
+`float` only: `--lw-ask-size`, `--lw-ask-right`, `--lw-ask-bottom`, `--lw-ask-z`,
+`--lw-ask-close`. `normal` only: `--lw-ask-btn-padding`, `--lw-ask-btn-radius`,
+`--lw-ask-btn-font-size`, `--lw-ask-btn-icon-size`, `--lw-ask-btn-gap`,
+`--lw-ask-btn-width`, `--lw-ask-subtext-color`, `--lw-ask-subtext-font-size`,
+`--lw-ask-subtext-margin-top`.
+
+```html
+<!-- normal: a plain button, placed wherever you want it -->
+<lw-ask-our-blog
+  btn-type="normal"
+  btn-label="Search with AI"
+  btn-subtext="Ask anything to find relevant blogs"
+  href="/lw-blog/lw-blog"
+  style="--lw-ask-accent: #f58220; --lw-ask-accent-hover: #d16e19;"
+></lw-ask-our-blog>
+```
+
+For a full-width button set the width on the tag itself
+(`style="width: 100%; --lw-ask-btn-width: 100%"`).
+
+Events fired: `lw-ask-question` (`detail.question`, `detail.index`, `detail.href` —
+cancelable, so a listener can handle the query in place instead of navigating),
+`lw-ask-cta` (cancelable), `lw-ask-navigate` (`detail.href`, cancelable — fired
+when the button is pressed, before the modal opens), `lw-ask-modal-open`
+(`detail.query`, `detail.target` — after the modal is asked to open),
+`lw-ask-toggle` (`detail.open`)
+
+---
+
+### `<lw-ai-search>`
+
+A launcher button in normal document flow plus the full-screen AI search modal it
+opens. Unlike `<lw-ask-our-blog>`, which hands the query to another page, this
+component calls the search API itself and renders the results in the modal.
+
+Typing debounces at 350 ms but only refetches once a search has been **committed
+with Enter** — the first Enter swaps the modal from its centred hero layout to the
+scrolling results layout. Scrolling near the bottom prefetches the next page
+(20 per page). Opening pushes a history entry, so the browser back gesture closes
+the modal; Escape and a click on the backdrop close it too.
+
+While connected, the component registers `window.openAISearch()`, so any other
+button on the page can open the modal.
+
+| Property | Type | Description | Default |
+|---|---|---|---|
+| `search-base` | String | Search API origin | `"https://discoverai.levelworks.co"` |
+| `search-key` | String | `X-API-KEY` value | `""` |
+| `search-index` | String | Index to search | `"all"` |
+| `btn-label` | String | Button label | `"Search with AI"` |
+| `btn-subtext` | String | Line under the button | `"Ask anything to find relevant blogs"` |
+
+```html
+<lw-ai-search
+  search-base="https://discoverai.levelworks.co"
+  search-key="YOUR_API_KEY"
+  search-index="All"
+  btn-label="Search with AI"
+  btn-subtext="Ask anything to find relevant blogs"
+></lw-ai-search>
+```
+
+**Styling.** Every remaining attribute is mapped onto a `--lw-<attribute>` custom
+property on the host, and the stylesheet reads it as `var(--lw-<attribute>, default)`
+— so the default lives in CSS and the attribute only overrides when it is set.
+
+- Button: `btn-width`, `btn-height`, `btn-padding`, `btn-background`,
+  `btn-hover-background`, `btn-color`, `btn-border-radius`, `btn-font-size`,
+  `btn-font-weight`, `btn-icon-size`, `btn-gap`, `btn-subtext-color`,
+  `btn-subtext-font-size`, `btn-subtext-margin-top`
+- Container: `container-text-align`, `container-display`, `container-align-items`,
+  `container-justify-content`, `container-flex-direction`, `container-gap`,
+  `container-padding`, `container-margin`, `container-width`
+- `css-vars` — freeform escape hatch, `"key:val; key:val"`, set straight onto the host
+
+```html
+<lw-ai-search
+  search-key="YOUR_API_KEY"
+  btn-label="Ask the blog"
+  btn-background="#1E7A4A"
+  btn-hover-background="#17603A"
+  btn-border-radius="999px"
+  container-text-align="left"
+  container-width="280px"
+></lw-ai-search>
+```
+
+Shadow parts: `ai-search-container`, `ai-search-btn`, `inner-container`,
+`btn-icon`, `ai-search-subtext`.
+
+---
+
+### `<lw-ai-search>`
+
+Full-screen AI search modal: a trigger button, a hero with the search field and
+feature cards, then results with infinite scroll. `<lw-ask-our-blog>` drives it
+through `open()` and `openWithQuery(query)`.
+
+| Attribute | Description | Default |
+|---|---|---|
+| `search-base` | API origin; empty for a same-origin/proxied call | `"https://discoverai.levelworks.co"` |
+| `search-key` | `X-API-KEY` header value | `""` |
+| `search-index` | Index to search | `"all"` |
+| `btn-label` | Trigger button label | `"Search with AI"` |
+| `btn-subtext` | Line under the trigger button | `"Ask anything to find relevant blogs"` |
+
+Every `btn-*` and `container-*` attribute is mapped to a `--lw-<name>` CSS
+variable on the host, and `css-vars="key:val; key:val"` sets arbitrary ones.
+
+```html
+<lw-ai-search
+  search-base="https://discoverai.levelworks.co"
+  search-key="YOUR_API_KEY"
+  search-index="All"
+  btn-label="Search with AI"
+  btn-subtext="Ask anything to find relevant blogs"
+></lw-ai-search>
+```
 
 ---
 
