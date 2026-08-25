@@ -89,9 +89,6 @@
         search-key="pk_live_BZfN2SpXzwOh5LDvQmoDDjCkBHnf3ghscE4_6bwddAE"
         search-index="all"
         modal-top="0"
-        questions='["How long does it take to integrate?","Does it work with Webflow?","Can I see a live demo?","How does AI Search work on my website?"]'
-        style="--lw-ask-accent: #3E7649; --lw-ask-accent-hover: #2d6a39;
-               --lw-ask-subtext-color: rgba(255,255,255,0.55);"
       ></lw-ai-search>
     </div>
   </section>
@@ -107,8 +104,7 @@
     search-key="pk_live_BZfN2SpXzwOh5LDvQmoDDjCkBHnf3ghscE4_6bwddAE"
     search-index="all"
     modal-top="0"
-    questions='["How long does it take to integrate?","Does it work with Webflow?","Can I see a live demo?","How does AI Search work on my website?"]'
-    style="--lw-ask-accent: #1E7A4A; --lw-ask-bottom: 28px; --lw-ask-right: 28px;"
+    style="--lw-ask-bottom: 28px; --lw-ask-right: 28px;"
   ></lw-ai-search>
 
   <script type="module">
@@ -118,11 +114,6 @@
     const say = msg => { log.textContent = msg; };
 
     const launcher = document.getElementById('launcher');
-
-    // Questions are set on the tag itself above, as a JSON `questions`
-    // attribute. They can also be assigned as a property:
-    //   launcher.questions = ['…', '…'];
-    // Four is the ceiling either way — extras are dropped.
 
     // Clicking a question opens the <lw-ai-search> modal on this page
     // and runs that question straight away.

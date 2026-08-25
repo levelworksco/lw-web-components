@@ -1,6 +1,85 @@
 import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 import '../lw-blog-list/lw-blog-list.js';
+
+const DEFAULT_AI_THEME = {
+  widget: {
+    style: 'icon-text',
+    helperText: 'Ask me anything',
+    backgroundColor: '#F58635',
+    iconColor: '#FFFFFF',
+  },
+  button: {
+    backgroundColor: '#0ddb7e',
+    textColor: '#FFFFFF',
+    outlineColor: '#055337',
+    outlineThickness: 0,
+  },
+  questions: {
+    fontFamily: 'Inter, sans-serif',
+    textColor: '#1A1A1A',
+    backgroundColor: '#F4F4F6',
+  },
+  cornerRadius: 12,
+  suggestedQuestions: {
+    items: [
+      'How does Discover AI work?',
+      'What content sources do you support?',
+      'Can I customize the search results?',
+      'How do I get started?',
+    ],
+  },
+  page: { backgroundColor: '#0a0a0a' },
+  closeIcon: { color: '#6B6B6E' },
+  card: {
+    backgroundColor: '#000000',
+    textColor: '#1A1A1A',
+    cornerRadius: '8px',
+  },
+  logo: { image: '' },
+  text: {
+    header: {
+      text: 'Search Discover AI',
+      fontFamily: 'DM Sans, sans-serif',
+      color: '#f4efef',
+    },
+    subtitle: {
+      text: 'Find answers instantly',
+      fontFamily: 'Inter, sans-serif',
+      color: '#6B6B6E',
+    },
+    search: {
+      color: '#1A1A1A',
+      placeholder: 'Type to search...',
+    },
+  },
+  results: {
+    headings: {
+      fontFamily: 'DM Sans, sans-serif',
+      color: '#e21212',
+    },
+    blogTitle: {
+      fontFamily: 'DM Sans, sans-serif',
+      color: '#00f5a3',
+    },
+    bodyText: {
+      fontFamily: 'Inter, sans-serif',
+      color: '#e3e3e9',
+    },
+    chip: { backgroundColor: '#ffcbaf', color: '#1A1A1A' },
+    lineColor: '#E5E5E5',
+  },
+};
+
+function mergeTheme(base, override) {
+  const result = { ...base };
+  Object.entries(override || {}).forEach(([key, value]) => {
+    result[key] = value && typeof value === 'object' && !Array.isArray(value)
+      ? mergeTheme(base[key] || {}, value)
+      : value;
+  });
+  return result;
+}
 import '../lw-blog-details/lw-blog-details.js';
 import { cleanCrawledText, formatCrawledText } from '../lw-blog-list/lw-blog-list.js';
 import '../lw-blog-overview/lw-blog-overview.js';
@@ -51,9 +130,6 @@ import '../lw-blog-overview/lw-blog-overview.js';
 //                         only matters for middle-click / new tab
 //   target      (String)  link target for href, e.g. "_blank"
 //   query-param (String)  query key for the question, default "q"
-//   questions   (Array)   JSON array of suggestion strings, max 4 —
-//                         any beyond the fourth are ignored. Empty by
-//                         default: set them on the tag.
 //   cta-label   (String)  primary button label, default "Ask Our Blog"
 //                         — the CTA always renders, questions or not
 //   cta-href    (String)  if set, the CTA renders as a link
@@ -132,6 +208,7 @@ export class LwAiSearch extends LitElement {
     searchIndex: { type: String, attribute: 'search-index' },
     semanticRatio: { type: Number, attribute: 'semantic-ratio' },
     searchPlaceholder: { type: String, attribute: 'search-placeholder' },
+    theme:            { type: Object },
     // Overview shown above the results, rendered by <lw-blog-overview>
     overviewHeading:    { type: String, attribute: 'overview-heading'    },
     overviewCitations:  { type: String, attribute: 'overview-citations'  },
@@ -141,7 +218,6 @@ export class LwAiSearch extends LitElement {
     href:       { type: String                            },
     target:     { type: String                            },
     queryParam: { type: String,  attribute: 'query-param' },
-    questions:  { type: Array                            },
     ctaLabel:   { type: String,  attribute: 'cta-label'  },
     ctaHref:    { type: String,  attribute: 'cta-href'   },
     ctaTarget:  { type: String,  attribute: 'cta-target' },
@@ -189,8 +265,13 @@ export class LwAiSearch extends LitElement {
       -webkit-font-smoothing: antialiased;
     }
 
+    .ai-search-launcher { display: contents; }
+
     /* ── Expanding panel ── */
     .panel {
+      position: absolute;
+      right: 0;
+      bottom: 100%;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
@@ -280,11 +361,11 @@ export class LwAiSearch extends LitElement {
       justify-content: center;
       gap: 6px;
       font-weight: 600;
-      color: #ffffff;
-      background: var(--lw-ask-accent, #1E7A4A);
-      border-color: rgba(255, 255, 255, 0.35);
+      color: var(--lw-ai-button-color, #ffffff);
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1E7A4A));
+      border: var(--lw-ai-button-outline-width, 0px) solid var(--lw-ai-button-outline, transparent);
     }
-    .cta:hover { background: var(--lw-ask-accent-hover, #17603A); }
+    .cta:hover { background: var(--lw-ai-button-bg, var(--lw-ask-accent-hover, #17603A)); }
     .cta svg   { flex-shrink: 0; }
 
     /* ── Floating button ── */
@@ -296,8 +377,8 @@ export class LwAiSearch extends LitElement {
       border-radius: 50%;
       display: grid;
       place-items: center;
-      color: #ffffff;
-      background: var(--lw-ask-accent, #1E7A4A);
+      color: var(--lw-ai-widget-icon-color, #ffffff);
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1E7A4A));
       cursor: pointer;
       text-decoration: none;
       box-sizing: border-box;
@@ -313,14 +394,14 @@ export class LwAiSearch extends LitElement {
     }
 
     .fab:focus-visible {
-      outline: 2px solid var(--lw-ask-accent, #1E7A4A);
+      outline: 2px solid var(--lw-ai-button-outline, var(--lw-ask-accent, #1E7A4A));
       outline-offset: 3px;
     }
 
     /* sized in % so the icon tracks --lw-ask-size */
     .fab-icon {
-      width: 48%;
-      height: 48%;
+      width: 90%;
+      height: 90%;
     }
 
     /* ── Inline mode: btn-type="normal" ──
@@ -339,16 +420,16 @@ export class LwAiSearch extends LitElement {
 
     .btn {
       appearance: none;
-      border: none;
+      border: var(--lw-ai-button-outline-width, 0px) solid var(--lw-ai-button-outline, transparent);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: var(--lw-ask-btn-gap, 8px);
       width: var(--lw-ask-btn-width, auto);
       padding: var(--lw-ask-btn-padding, 13px 22px);
-      border-radius: var(--lw-ask-btn-radius, 6px);
-      background: var(--lw-ask-accent, #1E7A4A);
-      color: #ffffff;
+      border-radius: var(--lw-ai-corner-radius, var(--lw-ask-btn-radius, 6px));
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1E7A4A));
+      color: var(--lw-ai-button-color, #ffffff);
       font: inherit;
       font-size: var(--lw-ask-btn-font-size, 16px);
       font-weight: 600;
@@ -356,14 +437,17 @@ export class LwAiSearch extends LitElement {
       cursor: pointer;
       text-decoration: none;
       white-space: nowrap;
+      position: relative;
+      z-index: 1;
+      touch-action: manipulation;
       transition: background 0.15s, transform 0.1s;
     }
 
-    .btn:hover  { background: var(--lw-ask-accent-hover, #17603A); }
+    .btn:hover  { background: var(--lw-ai-button-bg, var(--lw-ask-accent-hover, #17603A)); }
     .btn:active { transform: scale(0.97); }
 
     .btn:focus-visible {
-      outline: 2px solid var(--lw-ask-accent, #1E7A4A);
+      outline: 2px solid var(--lw-ai-button-outline, var(--lw-ask-accent, #1E7A4A));
       outline-offset: 3px;
     }
 
@@ -429,7 +513,7 @@ export class LwAiSearch extends LitElement {
       height: calc(100% - var(--lw-ask-modal-top, 0px));
       overflow-x: hidden;
       overflow-y: auto;
-      background: var(--lw-ask-modal-bg, #f4f4f4);
+      background: var(--lw-ai-page-bg, var(--lw-ask-modal-bg, #f4f4f4));
       position: relative;
       padding: 70px 0 80px;
       box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
@@ -478,12 +562,45 @@ export class LwAiSearch extends LitElement {
       background: none;
       border: none;
       font-size: 40px;
-      color: #aaa;
+      color: var(--lw-ai-close-color, #aaa);
       cursor: pointer;
       line-height: 1;
       padding: 4px 8px;
     }
     #ai-search-close:hover { color: #333; }
+
+    /* Client logo shown at the top of the search modal. */
+    .client-logo {
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 180px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .client-logo img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .client-logo-placeholder {
+      width: 150px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 1px dashed #c8cdd3;
+      border-radius: 5px;
+      color: #9aa1a8;
+      font-size: 11px;
+      letter-spacing: .02em;
+    }
+    .client-logo-placeholder svg { width: 16px; height: 16px; }
 
     /* ── Hero ── */
     .hero {
@@ -501,7 +618,8 @@ export class LwAiSearch extends LitElement {
       font-family: var(--lw-ask-modal-title-font, Georgia, 'Times New Roman', serif);
       font-size: 34px;
       font-weight: 600;
-      color: #1a1a1a;
+      font-family: var(--lw-ai-header-font, Georgia, 'Times New Roman', serif);
+      color: var(--lw-ai-header-color, #1a1a1a);
       letter-spacing: -0.01em;
     }
 
@@ -509,7 +627,8 @@ export class LwAiSearch extends LitElement {
       margin-top: 6px;
       margin-bottom: 34px;
       font-size: 14px;
-      color: #6b7280;
+      font-family: var(--lw-ai-subtitle-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      color: var(--lw-ai-subtitle-color, #6b7280);
     }
 
     /* ── Search bar ── */
@@ -553,7 +672,10 @@ export class LwAiSearch extends LitElement {
       font-family: inherit;
       font-size: 15px;
       padding: 14px 7px;
-      color: #0f172a;
+      color: var(--lw-ai-search-color, #0f172a);
+    }
+    .search-input-wrapper input::placeholder {
+      color: var(--lw-ai-search-placeholder, #9aa1a8);
     }
 
     .clear-btn {
@@ -582,10 +704,11 @@ export class LwAiSearch extends LitElement {
       width: 200px;
       min-height: 104px;
       padding: 15px 16px;
-      border-radius: 10px;
-      background: var(--lw-ask-accent, #1E7A4A);
-      color: #ffffff;
+      border-radius: var(--lw-ai-corner-radius, 10px);
+      background: var(--lw-ai-question-bg, var(--lw-ai-card-bg, var(--lw-ask-accent, #1E7A4A)));
+      color: var(--lw-ai-question-color, var(--lw-ai-card-color, #ffffff));
       font: inherit;
+      font-family: var(--lw-ai-question-font, inherit);
       font-size: 13px;
       line-height: 1.45;
       text-align: left;
@@ -598,7 +721,7 @@ export class LwAiSearch extends LitElement {
     }
 
     .question-card:hover {
-      background: var(--lw-ask-accent-hover, #17603A);
+      background: var(--lw-ai-question-bg, var(--lw-ai-card-bg, var(--lw-ask-accent-hover, #17603A)));
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
     }
     .question-card:active { transform: scale(0.98); }
@@ -620,6 +743,11 @@ export class LwAiSearch extends LitElement {
     }
 
     .powered-by svg {
+      display: block;
+      width: var(--lw-ask-powered-width, 162px);
+      height: auto;
+    }
+    .powered-by img {
       display: block;
       width: var(--lw-ask-powered-width, 162px);
       height: auto;
@@ -660,7 +788,8 @@ export class LwAiSearch extends LitElement {
       margin: 26px 0 2px;
       font-size: 16px;
       font-weight: 700;
-      color: #1a1a1a;
+      font-family: var(--lw-ai-results-heading-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      color: var(--lw-ai-results-heading-color, #1a1a1a);
     }
 
     .searchMeta {
@@ -669,10 +798,11 @@ export class LwAiSearch extends LitElement {
       gap: 16px;
       margin-bottom: 20px;
       padding: 12px 0;
-      border-top: 1px solid rgba(15, 23, 42, .08);
-      border-bottom: 1px solid rgba(15, 23, 42, .08);
+      border-top: 1px solid var(--lw-ai-results-line-color, rgba(15, 23, 42, .08));
+      border-bottom: 1px solid var(--lw-ai-results-line-color, rgba(15, 23, 42, .08));
       font-size: 14px;
-      color: #595959;
+      font-family: var(--lw-ai-results-heading-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      color: var(--lw-ai-results-heading-color, #595959);
     }
     .searchMeta .metaHits { margin-left: 10px; }
     .searchMeta .metaTime { margin-right: 10px; }
@@ -680,8 +810,7 @@ export class LwAiSearch extends LitElement {
     /* Search results are rendered by <lw-blog-list>; theme variables are
        inherited by that child component. */
     .result-list {
-      --pl-title-font-family: inherit;
-      --pl-card-divider: rgba(15, 23, 42, 0.08);
+      --pl-card-divider: var(--lw-ai-results-line-color, rgba(15, 23, 42, 0.08));
     }
 
     .modal-loader,
@@ -810,15 +939,14 @@ export class LwAiSearch extends LitElement {
     this.searchIndex   = 'all';
     this.semanticRatio = 0.5;
     this.searchPlaceholder = 'Ask a question to get instant AI answer';
+    this.theme            = {};
     this.overviewHeading    = 'Overview';
-    this.overviewCitations  = 'chip';
+    this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
     this.modalTop          = '';
     this.href       = '';
     this.target     = '';
     this.queryParam = 'q';
-    // Supplied by the tag; nothing is assumed here.
-    this.questions = [];
     this.ctaLabel   = 'Ask Our Blog';
     this.ctaHref    = '';
     this.ctaTarget  = '';
@@ -863,6 +991,67 @@ export class LwAiSearch extends LitElement {
     this._canHover  = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   }
 
+  get _resolvedTheme() {
+    const theme = mergeTheme(DEFAULT_AI_THEME, this.theme);
+    if (!this.theme?.text?.subtitle?.text) {
+      theme.text.subtitle.text = 'Find answers instantly';
+    }
+    return theme;
+  }
+
+  get _suggestedQuestions() {
+    return this._resolvedTheme.suggestedQuestions.items || [];
+  }
+
+  get _themeStyle() {
+    const t = this._resolvedTheme;
+    return [
+      `--lw-ask-accent: ${t.widget.backgroundColor}`,
+      `--lw-ask-accent-hover: ${t.widget.backgroundColor}`,
+      `--lw-ai-widget-icon-color: ${t.widget.iconColor}`,
+      `--lw-ai-button-bg: ${t.button.backgroundColor}`,
+      `--lw-ai-button-color: ${t.button.textColor}`,
+      `--lw-ai-button-outline: ${t.button.outlineColor}`,
+      `--lw-ai-button-outline-width: ${typeof t.button.outlineThickness === 'number' ? `${t.button.outlineThickness}px` : t.button.outlineThickness}`,
+      `--lw-ai-question-font: ${t.questions.fontFamily}`,
+      `--lw-ai-question-bg: ${t.questions.backgroundColor}`,
+      `--lw-ai-question-color: ${t.questions.textColor}`,
+      `--lw-ai-corner-radius: ${typeof t.cornerRadius === 'number' ? `${t.cornerRadius}px` : t.cornerRadius}`,
+      `--lw-ai-widget-style: ${t.widget.style}`,
+      `--lw-ai-page-bg: ${t.page.backgroundColor}`,
+      `--lw-ai-close-color: ${t.closeIcon.color}`,
+      `--lw-ai-card-bg: ${t.card.backgroundColor}`,
+      `--lw-ai-card-color: ${t.card.textColor}`,
+      `--lw-ai-card-radius: ${t.card.cornerRadius}`,
+      `--lw-ai-header-font: ${t.text.header.fontFamily}`,
+      `--lw-ai-header-color: ${t.text.header.color}`,
+      `--lw-ai-subtitle-font: ${t.text.subtitle.fontFamily}`,
+      `--lw-ai-subtitle-color: ${t.text.subtitle.color}`,
+      `--lw-ai-search-color: ${t.text.search.color}`,
+      `--lw-ai-search-placeholder: ${t.text.search.placeholder}`,
+      `--lw-ai-results-heading-font: ${t.results.headings.fontFamily}`,
+      `--lw-ai-results-heading-color: ${t.results.headings.color}`,
+      `--pl-title-font-family: ${t.results.blogTitle.fontFamily}`,
+      `--pl-title-color: ${t.results.blogTitle.color}`,
+      `--pl-excerpt-font-family: ${t.results.bodyText.fontFamily}`,
+      `--pl-excerpt-color: ${t.results.bodyText.color}`,
+      `--pl-category-bg: ${t.results.chip.backgroundColor}`,
+      `--pl-category-color: ${t.results.chip.color}`,
+      `--pl-card-background: ${t.card.backgroundColor}`,
+      `--pl-card-text-color: ${t.card.textColor}`,
+      `--pl-card-radius: ${t.card.cornerRadius}`,
+      `--lw-ai-results-title-font: ${t.results.blogTitle.fontFamily}`,
+      `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
+      `--lw-ai-results-body-font: ${t.results.bodyText.fontFamily}`,
+      `--lw-ai-results-body-color: ${t.results.bodyText.color}`,
+      `--lw-ai-results-chip-bg: ${t.results.chip.backgroundColor}`,
+      `--lw-ai-results-chip-color: ${t.results.chip.color}`,
+      `--lw-ai-results-line-color: ${t.results.lineColor}`,
+      `--pl-card-divider: ${t.results.lineColor}`,
+      `--pl-header-border-color: ${t.results.lineColor}`,
+    ].join(';');
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener('mouseenter', this._onEnter);
@@ -896,23 +1085,18 @@ export class LwAiSearch extends LitElement {
 
 
 
-  willUpdate(changed) {
-    const max = LwAiSearch.maxQuestions;
-    if (changed.has('questions') && (this.questions?.length ?? 0) > max) {
-      console.warn(
-        `<lw-ai-search>: ${this.questions.length} questions supplied, ` +
-        `only the first ${max} are shown.`
-      );
-    }
-  }
-
   /** True when btn-type asks for an inline (non-fixed) button. */
   get _inline() {
     return /^(btn-)?normal$/i.test(this.btnType ?? '');
   }
 
   get _hoverEnabled() {
-    return !this._inline && this.trigger === 'hover' && this._canHover;
+    // Touch/coarse-pointer devices and tablet-sized layouts use a deliberate
+    // two-tap flow: first tap opens the floating options, second tap opens the
+    // search modal. This avoids relying only on the browser's hover report.
+    const touchOrTablet = window.matchMedia('(pointer: coarse)').matches
+      || window.innerWidth <= 1024;
+    return !this._inline && this.trigger === 'hover' && this._canHover && !touchOrTablet;
   }
 
   _setOpen(value) {
@@ -970,6 +1154,12 @@ export class LwAiSearch extends LitElement {
       this._dismissed = this.open;
       this._setOpen(!this.open);
     }
+  };
+
+  _onInlineFab = (e) => {
+    if (!this._inline) return this._onFab(e);
+    e.preventDefault();
+    this.openSearch();
   };
 
   _onClose = (e) => {
@@ -1446,15 +1636,18 @@ export class LwAiSearch extends LitElement {
 
   render() {
     return html`
-      ${this._inline
-        ? this._renderInlineButton()
-        : html`${this._renderQuestions()}${this._renderFab()}`}
+      <div class="ai-search-launcher" style=${this._themeStyle}>
+        ${this._inline
+          ? this._renderInlineButton()
+          : html`${this._renderQuestions()}${this._renderFab()}`}
+      </div>
       ${this._renderModal()}
     `;
   }
 
   _renderInlineButton() {
-    const inner = html`${LwAiSearch.aiIcon}${this.btnLabel}`;
+    const inner = html`${LwAiSearch.aiIcon}
+      ${this._resolvedTheme.widget.style === 'icon-only' ? '' : this.btnLabel}`;
     return html`
       ${this.href
         ? html`
@@ -1462,12 +1655,12 @@ export class LwAiSearch extends LitElement {
              href=${this.href}
              target=${this.target || '_self'}
              rel=${this.target === '_blank' ? 'noreferrer noopener' : ''}
-             @click=${this._onFab}>${inner}</a>`
+             @click=${this._onInlineFab}>${inner}</a>`
         : html`
-          <button class="btn" @click=${this._onFab}>${inner}</button>`
+          <button class="btn" @click=${this._onInlineFab}>${inner}</button>`
       }
-      ${this.btnSubtext
-        ? html`<p class="btn-subtext">${this.btnSubtext}</p>`
+      ${(this.btnSubtext || this._resolvedTheme.widget.helperText)
+        ? html`<p class="btn-subtext">${this.btnSubtext || this._resolvedTheme.widget.helperText}</p>`
         : ''}
     `;
   }
@@ -1480,21 +1673,35 @@ export class LwAiSearch extends LitElement {
   }
 
   _renderModal() {
-    const questions = (this.questions ?? []).slice(0, LwAiSearch.maxQuestions);
+    const questions = this._suggestedQuestions.slice(0, LwAiSearch.maxQuestions);
     return html`
       <div id="ai-search-overlay"
            class=${this.modalOpen ? 'open' : ''}
-           style=${this._modalTopVar}
+           style=${[this._modalTopVar, this._themeStyle].filter(Boolean).join(';')}
            @click=${this._onOverlayClick}>
         <div id="ai-search-modal"
              class=${this._postCommit || this._detailPost ? 'post-commit' : ''}
              role="dialog"
              aria-modal="true"
-             aria-label="DiscoverAI search"
+             aria-label=${`${this._resolvedTheme.text.header.text} search`}
              @scroll=${this._onModalScroll}>
 
           <button id="ai-search-close" aria-label="Close search"
                   @click=${this.closeSearch}>&times;</button>
+
+          <div class="client-logo" aria-label="Client logo">
+            ${this._resolvedTheme.logo.image
+              ? html`<img src=${this._resolvedTheme.logo.image} alt="Client logo" />`
+              : html`
+                <div class="client-logo-placeholder" role="img" aria-label="Client logo placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="8" cy="9" r="1.5" fill="currentColor"/>
+                    <path d="m5 17 4.5-4.5a1.5 1.5 0 0 1 2.12 0L14 14.88l1.38-1.38a1.5 1.5 0 0 1 2.12 0L19 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Client logo</span>
+                </div>`}
+          </div>
 
           ${this._detailPost ? html`
             <div class="detail-view">
@@ -1509,8 +1716,8 @@ export class LwAiSearch extends LitElement {
             </div>` : html`
 
           <div class="hero">
-            <h1>DiscoverAI</h1>
-            <p>Intelligent search that understands your goal</p>
+            <h1>${this._resolvedTheme.text.header.text}</h1>
+            <p>${this._resolvedTheme.text.subtitle.text}</p>
 
             <div class="search-bar">
               <div class="search-input-wrapper">
@@ -1521,7 +1728,7 @@ export class LwAiSearch extends LitElement {
                         stroke-linecap="round" opacity="0.8"/>
                 </svg>
                 <input type="text" id="searchInput" autocomplete="off"
-                       placeholder=${this.searchPlaceholder}
+                       placeholder=${this._resolvedTheme.text.search.placeholder || this.searchPlaceholder}
                        .value=${this._inputValue}
                        @input=${this._onModalInput}
                        @keydown=${this._onModalKeydown} />
@@ -1579,7 +1786,9 @@ export class LwAiSearch extends LitElement {
 
           <div class="modal-loader ${this._loading ? '' : 'is-hidden'}">Searching...</div>`}
 
-          <div class="powered-by">${LwAiSearch.poweredByBadge}</div>
+          <div class="powered-by">
+            ${LwAiSearch.poweredByBadge}
+          </div>
         </div>
       </div>
     `;
@@ -1654,7 +1863,7 @@ export class LwAiSearch extends LitElement {
 
   _renderQuestions() {
     // At most four questions; "Ask Our Blog" always sits below them.
-    const items = (this.questions ?? []).slice(0, LwAiSearch.maxQuestions);
+    const items = this._suggestedQuestions.slice(0, LwAiSearch.maxQuestions);
     // The panel only ever opens upward, so the stagger runs bottom-up:
     // the pill nearest the button leads.
     const total = items.length + 1;

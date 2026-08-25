@@ -42,6 +42,8 @@ export class LwBlogListItem extends LitElement {
       align-items: flex-start;
       padding: var(--pl-card-padding, 1.75rem 0);
       border-bottom: 1px solid var(--pl-card-divider, #ececec);
+      background: var(--pl-card-background, transparent);
+      border-radius: var(--pl-card-radius, 0);
     }
     :host(:last-child) .list-row { border-bottom: none; }
     /* Numbered (search-result) list: the heading sits right under
@@ -76,6 +78,7 @@ export class LwBlogListItem extends LitElement {
     .list-excerpt {
       font-size:   var(--pl-excerpt-font-size, 13px);
       color:       var(--pl-excerpt-color,     #9aa1a8);
+      font-family: var(--pl-excerpt-font-family, inherit);
       line-height: 1.55;
       margin-bottom: 1rem;
       display: -webkit-box;
@@ -116,8 +119,8 @@ export class LwBlogListItem extends LitElement {
     .grid-card {
       display: flex;
       flex-direction: column;
-      background: #fff;
-      border-radius: var(--pl-grid-card-radius, 12px);
+      background: var(--pl-card-background, #fff);
+      border-radius: var(--pl-card-radius, var(--pl-grid-card-radius, 12px));
       height: 100%;
       border-bottom: 1px solid var(--pl-card-divider, #e5e5e5);
       box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
@@ -127,7 +130,7 @@ export class LwBlogListItem extends LitElement {
       width: 100%;
       height: 180px;
       overflow: hidden;
-      border-radius: var(--pl-grid-card-radius, 12px) var(--pl-grid-card-radius, 12px) 0 0;
+      border-radius: var(--pl-card-radius, var(--pl-grid-card-radius, 12px)) var(--pl-card-radius, var(--pl-grid-card-radius, 12px)) 0 0;
       background: #ddd;
       flex-shrink: 0;
     }
@@ -155,6 +158,7 @@ export class LwBlogListItem extends LitElement {
     .grid-excerpt {
       font-size:   var(--pl-excerpt-font-size, 16px);
       color:       var(--pl-excerpt-color,     #555);
+      font-family: var(--pl-excerpt-font-family, inherit);
       line-height: 1.6;
       margin-bottom: 0.6rem;
       display: -webkit-box;

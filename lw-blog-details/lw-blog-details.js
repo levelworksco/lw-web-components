@@ -94,8 +94,8 @@ export class LwBlogDetailed extends LitElement {
     :host {
       display: block;
       width: 100%;
-      font-family: 'Inter', sans-serif;
-      color: #222;
+      font-family: var(--lw-ai-results-body-font, 'Inter', sans-serif);
+      color: var(--lw-ai-results-body-color, #222);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     p { color: #000; }
@@ -115,10 +115,10 @@ export class LwBlogDetailed extends LitElement {
 
     /* ── Title ── */
     .pd-title {
-      font-family: var(--pd-title-font-family, 'Inter', sans-serif);
+      font-family: var(--lw-ai-results-title-font, var(--pd-title-font-family, 'Inter', sans-serif));
       font-size:   var(--pd-title-font-size, 2rem);
       font-weight: 700;
-      color:       var(--pd-title-color, #111);
+      color:       var(--lw-ai-results-title-color, var(--pd-title-color, #111));
       line-height: 1.2;
       margin-bottom: 0.4rem;
     }
@@ -157,8 +157,8 @@ export class LwBlogDetailed extends LitElement {
       display: inline-block;
       padding: 2px 10px;
       border-radius: 999px;
-      background: #fde8d4;
-      color: #e07630;
+      background: var(--lw-ai-results-chip-bg, #fde8d4);
+      color: var(--lw-ai-results-chip-color, #e07630);
       font-weight: 500;
       font-size: 0.75rem;
       white-space: nowrap;
@@ -167,7 +167,8 @@ export class LwBlogDetailed extends LitElement {
     /* ── Tags (comma-separated plain text) ── */
     .pd-tags {
       font-size: 0.8rem;
-      color: #888;
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color: var(--lw-ai-results-body-color, #888);
       margin-bottom: 1.25rem;
       line-height: 1.5;
     }
@@ -199,7 +200,7 @@ export class LwBlogDetailed extends LitElement {
     /* ── Divider ── */
     .pd-divider {
       border: none;
-      border-top: 1px solid #e8e8e8;
+      border-top: 1px solid var(--lw-ai-results-line-color, #e8e8e8);
       margin: 1.4rem 0;
     }
 
@@ -209,14 +210,16 @@ export class LwBlogDetailed extends LitElement {
       font-weight:    700;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color:          var(--pd-section-label-color, #aaa);
+      font-family:    var(--lw-ai-results-heading-font, inherit);
+      color:          var(--lw-ai-results-heading-color, var(--pd-section-label-color, #aaa));
       margin-bottom:  0.5rem;
     }
 
     /* ── Summary ── */
     .pd-summary {
       font-size: 16px;
-      color:     var(--pd-summary-color, #000) !important;
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color:     var(--lw-ai-results-body-color, var(--pd-summary-color, #000)) !important;
       line-height: 1.7;
     }
 
@@ -224,17 +227,19 @@ export class LwBlogDetailed extends LitElement {
     /* ── Body ── */
     .pd-body {
       font-size:   var(--pd-body-font-size,   1rem);
-      color:       #222 !important;
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color:       var(--lw-ai-results-body-color, #222) !important;
       line-height: var(--pd-body-line-height, 1.8);
     }
-    .pd-body p            { margin-bottom: 1.1rem; color: #000 !important; }
+    .pd-body p            { margin-bottom: 1.1rem; color: var(--lw-ai-results-body-color, #000) !important; }
     .pd-body p:last-child { margin-bottom: 0; }
     .pd-body strong       { font-weight: 700; }
     .pd-heading {
+      font-family: var(--lw-ai-results-heading-font, inherit);
       font-weight: 700;
       font-size:   1.05rem;
       margin: 1.75rem 0 0.6rem;
-      color: #111;
+      color: var(--lw-ai-results-heading-color, #111);
       line-height: 1.3;
     }
     .pd-heading:first-child { margin-top: 0.25rem; }
