@@ -44,13 +44,18 @@ export class LwBlogListItem extends LitElement {
       border-bottom: 1px solid var(--pl-card-divider, #ececec);
       background: var(--pl-card-background, transparent);
       border-radius: var(--pl-card-radius, 0);
+      color: var(--lw-ai-results-body-color, inherit);
     }
     :host(:last-child) .list-row { border-bottom: none; }
     /* Numbered (search-result) list: the heading sits right under
        "Further Reading", so trim the first item's top padding. */
     :host([number="1"]) .list-row { padding-top: 0.3rem; }
 
-    .list-content { flex: 1; min-width: 0; }
+    .list-content {
+      flex: 1;
+      min-width: 0;
+      color: var(--lw-ai-results-body-color, inherit);
+    }
 
     /* Numbered title: number in its own column so wrapped lines align under
        the title text (a hanging indent), not under the number. */
@@ -73,7 +78,9 @@ export class LwBlogListItem extends LitElement {
       transition: color 0.15s;
       font-family: var(--pl-title-font-family, 'Inter', sans-serif);
     }
-    .list-title:hover { color: var(--pl-title-hover-color, #555); }
+    .list-title:hover {
+      color: var(--lw-ai-results-title-hover-color, var(--pl-title-hover-color, #555));
+    }
 
     .list-excerpt {
       font-size:   var(--pl-excerpt-font-size, 13px);
@@ -93,7 +100,7 @@ export class LwBlogListItem extends LitElement {
       gap: 0.5rem;
       flex-wrap: wrap;
       font-size: var(--pl-meta-font-size, 13px);
-      color:     var(--pl-meta-color,     #888);
+      color:     var(--lw-ai-results-body-color, var(--pl-meta-color, #888));
     }
     /* Desktop shows the inline meta (under the text); the full-width one below
        both content + image is mobile-only (enabled in the ≤600px block). */
@@ -124,6 +131,7 @@ export class LwBlogListItem extends LitElement {
       height: 100%;
       border-bottom: 1px solid var(--pl-card-divider, #e5e5e5);
       box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      color: var(--lw-ai-results-body-color, inherit);
     }
 
     .grid-image {
@@ -141,6 +149,7 @@ export class LwBlogListItem extends LitElement {
       display: flex;
       flex-direction: column;
       flex: 1;
+      color: var(--lw-ai-results-body-color, inherit);
     }
 
     .grid-title {
@@ -173,7 +182,7 @@ export class LwBlogListItem extends LitElement {
       flex-direction: column;
       gap: 0.3rem;
       font-size: var(--pl-meta-font-size, 12px);
-      color:     var(--pl-meta-color,     #999);
+      color:     var(--lw-ai-results-body-color, var(--pl-meta-color, #999));
       margin-top: auto;
     }
 
@@ -202,7 +211,12 @@ export class LwBlogListItem extends LitElement {
     }
 
     /* shared meta pieces */
-    .meta-author   { color: var(--pl-author-color, #1a1a1a); font-weight: 600; }
+    .meta-author,
+    .meta-date {
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color: var(--lw-ai-results-body-color, var(--pl-author-color, #1a1a1a));
+    }
+    .meta-author { font-weight: 600; }
     .meta-dot      { color: #ccc; }
     .meta-category {
       display: inline-block;
@@ -342,7 +356,7 @@ export class LwBlogListItem extends LitElement {
         </div>` : ''}
       ${date || readTime ? html`
         <div class="grid-meta-date-row">
-          ${date ? html`<span>${date}</span>` : ''}
+          ${date ? html`<span class="meta-date">${date}</span>` : ''}
           ${date && readTime ? html`<span class="meta-dot">•</span>` : ''}
           ${readTime ? html`<span>${readTime}</span>` : ''}
         </div>` : ''}
@@ -356,7 +370,7 @@ export class LwBlogListItem extends LitElement {
   _meta(author, avatar, date, readTime, category) {
     const parts = [];
     if (author)   parts.push(html`${this._avatar(avatar, author)}<span class="meta-author">${author}</span>`);
-    if (date)     parts.push(html`<span>${date}</span>`);
+    if (date)     parts.push(html`<span class="meta-date">${date}</span>`);
     if (readTime) parts.push(html`<span>${readTime}</span>`);
     if (category && category !== 'all') parts.push(html`<span class="meta-category">${category}</span>`);
 

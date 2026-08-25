@@ -604,7 +604,8 @@ export class LwBlogList extends LitElement {
 
     .pl-result-count {
       font-size: var(--pl-header-font-size, 13px);
-      color: #667085;
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color: var(--lw-ai-results-body-color, #667085);
       font-weight: 400;
       white-space: nowrap;
     }
@@ -623,8 +624,9 @@ export class LwBlogList extends LitElement {
       align-items: center;
       gap: 2px;
       padding: 4px;
+      border: 1px solid #ffffff;
       border-radius: 999px;
-      background: #f3f4f6;
+      background: var(--lw-ai-page-bg, #f3f4f6);
     }
 
     .pl-toggle button {
@@ -638,14 +640,14 @@ export class LwBlogList extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 999px;
-      color: #98a2b3;
+      color: var(--lw-ai-results-body-color, #98a2b3);
       transition: background 0.15s, color 0.15s;
       line-height: 0;
     }
-    .pl-toggle button:hover { background: #e9eaec; }
+    .pl-toggle button:hover { background: var(--lw-ai-page-bg, #e9eaec); }
     .pl-toggle button.active {
       background: #fff;
-      color: #667085;
+      color: var(--lw-ai-results-body-color, #667085);
       box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
     }
     .pl-toggle button svg {
@@ -656,6 +658,7 @@ export class LwBlogList extends LitElement {
     /* ── Sort dropdown ── */
     .pl-sort {
       position: relative;
+      background: var(--lw-ai-page-bg, #ffffff);
     }
 
     .pl-filter {
@@ -672,23 +675,23 @@ export class LwBlogList extends LitElement {
       gap: 0.5rem;
       height: 38px;
       padding: 0 16px;
-      border: 1px solid var(--pl-sort-border, #d5d9e0);
+      border: 1px solid #ffffff;
       border-radius: 999px;
-      background: var(--pl-sort-bg, #ffffff);
+      background: var(--lw-ai-page-bg, var(--pl-sort-bg, #ffffff));
       font-family: 'Inter', sans-serif;
       font-size: 14px;
       font-weight: 600;
-      color: var(--pl-sort-color, #5b6478);
+      color: var(--lw-ai-results-body-color, var(--pl-sort-color, #5b6478));
       cursor: pointer;
       white-space: nowrap;
       transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    .pl-sort-btn:hover { border-color: var(--pl-sort-border-hover, #b9c0cc); }
+    .pl-sort-btn:hover { border-color: #ffffff; }
 
     /* Open state: border and label take the accent. */
     .pl-sort-btn.is-open {
       border-color: var(--pl-sort-accent, #F58635);
-      color:        var(--pl-sort-accent, #F58635);
+      color:        var(--lw-ai-results-heading-color, var(--pl-sort-accent, #F58635));
     }
 
     /* The label shows the current sort; the caret is redundant next to
@@ -764,13 +767,7 @@ export class LwBlogList extends LitElement {
     .pl-sort-option:hover { background: #f5f5f5; }
     .pl-sort-option.selected {
       font-weight: 600;
-      color: var(--pl-sort-accent, #F58635);
-      /* Tint derived from the accent itself, so recolouring the accent
-         carries the row with it. The flat value is the fallback for
-         browsers without color-mix(). */
-      background: #FEF3EB;
-      background: var(--pl-sort-selected-bg,
-        color-mix(in srgb, var(--pl-sort-accent, #F58635) 14%, transparent));
+      color: var(--lw-ai-results-heading-color, var(--pl-sort-accent, #F58635));
     }
 
     /* ── List / Grid ── */
@@ -883,7 +880,9 @@ export class LwBlogList extends LitElement {
       .pl-header-right { gap: 0.4rem; }
       .pl-toggle       { padding: 0 3px; }
       .pl-toggle button,
-      .pl-filter-btn   { width: 24px; height: 24px; min-width: 24px; color: #667085; }
+      .pl-filter-btn   { width: 24px; height: 24px; min-width: 24px; }
+      .pl-toggle button { color: var(--lw-ai-results-body-color, #667085); }
+      .pl-filter-btn   { color: #667085; }
       .pl-sort-btn {
         width: 28px;
         min-width: 28px;
@@ -1047,6 +1046,3 @@ export class LwBlogList extends LitElement {
 }
 
 customElements.define('lw-blog-list', LwBlogList);
-
-
-

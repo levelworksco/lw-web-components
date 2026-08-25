@@ -29,10 +29,10 @@ const DEFAULT_AI_THEME = {
       'How do I get started?',
     ],
   },
-  page: { backgroundColor: '#0a0a0a' },
+  page: { backgroundColor: '#373737' },
   closeIcon: { color: '#6B6B6E' },
   card: {
-    backgroundColor: '#000000',
+    backgroundColor: '#00000000',
     textColor: '#1A1A1A',
     cornerRadius: '8px',
   },
@@ -61,6 +61,7 @@ const DEFAULT_AI_THEME = {
     blogTitle: {
       fontFamily: 'DM Sans, sans-serif',
       color: '#00f5a3',
+      hoverColor: '#009205',
     },
     bodyText: {
       fontFamily: 'Inter, sans-serif',
@@ -80,8 +81,6 @@ function mergeTheme(base, override) {
   });
   return result;
 }
-import '../lw-blog-details/lw-blog-details.js';
-import { cleanCrawledText, formatCrawledText } from '../lw-blog-list/lw-blog-list.js';
 import '../lw-blog-overview/lw-blog-overview.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -246,7 +245,6 @@ export class LwAiSearch extends LitElement {
     _inputValue:   { state: true },
     _summaryText:  { state: true },
     _summaryHits:  { state: true },
-    _detailPost:   { state: true },
   };
 
   // Page size for each search request.
@@ -523,32 +521,6 @@ export class LwAiSearch extends LitElement {
     }
 
     /* ── Detail view ── */
-    .detail-view {
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 0 10px;
-    }
-
-    .detail-back {
-      appearance: none;
-      border: none;
-      background: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 14px;
-      padding: 6px 10px 6px 4px;
-      border-radius: 8px;
-      font: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      color: #4b5563;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .detail-back:hover { background: rgba(17, 17, 17, 0.05); color: #111827; }
-
     /* Once a search has run the modal scrolls as a normal page. */
     #ai-search-modal.post-commit {
       display: block;
@@ -569,7 +541,7 @@ export class LwAiSearch extends LitElement {
     }
     #ai-search-close:hover { color: #333; }
 
-    /* Client logo shown at the top of the search modal. */
+    /* Brand logo shown at the top of the search modal. */
     .client-logo {
       position: absolute;
       top: 30px;
@@ -611,7 +583,7 @@ export class LwAiSearch extends LitElement {
       max-width: 960px;
       margin: 0 auto;
       text-align: center;
-      padding: 10px 10px 30px;
+      padding: 30px 10px 30px;
     }
 
     .hero h1 {
@@ -760,6 +732,27 @@ export class LwAiSearch extends LitElement {
       padding: 0 10px;
     }
 
+    .searchMeta {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding: 12px 0;
+      border-top: 1px solid var(--lw-ai-results-line-color, rgba(15, 23, 42, .08));
+      border-bottom: 1px solid var(--lw-ai-results-line-color, rgba(15, 23, 42, .08));
+      font-size: 14px;
+    }
+    .searchMeta .metaHits {
+      margin-left: 10px;
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color: var(--lw-ai-results-body-color, inherit);
+    }
+    .searchMeta .metaTime {
+      margin-right: 10px;
+      font-family: var(--lw-ai-results-body-font, inherit);
+      color: var(--lw-ai-results-body-color, inherit);
+    }
+
     /* lw-blog-list names its own accent --pl-sort-accent and defaults it
        to orange. Feed it this component's accent so the sort control
        follows whatever the tag sets, instead of the list's default. */
@@ -771,8 +764,7 @@ export class LwAiSearch extends LitElement {
        one, so clear them here rather than editing those components.
        A rule targeting the element from this scope overrides its :host. */
     .modal-overview,
-    lw-blog-list,
-    lw-blog-details {
+    lw-blog-list {
       background: transparent;
       background-color: transparent;
     }
@@ -785,27 +777,12 @@ export class LwAiSearch extends LitElement {
     }
 
     .further-reading {
-      margin: 26px 0 2px;
+      margin: 26px 0 12px;
       font-size: 16px;
       font-weight: 700;
       font-family: var(--lw-ai-results-heading-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
       color: var(--lw-ai-results-heading-color, #1a1a1a);
     }
-
-    .searchMeta {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 20px;
-      padding: 12px 0;
-      border-top: 1px solid var(--lw-ai-results-line-color, rgba(15, 23, 42, .08));
-      border-bottom: 1px solid var(--lw-ai-results-line-color, rgba(15, 23, 42, .08));
-      font-size: 14px;
-      font-family: var(--lw-ai-results-heading-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
-      color: var(--lw-ai-results-heading-color, #595959);
-    }
-    .searchMeta .metaHits { margin-left: 10px; }
-    .searchMeta .metaTime { margin-right: 10px; }
 
     /* Search results are rendered by <lw-blog-list>; theme variables are
        inherited by that child component. */
@@ -976,7 +953,6 @@ export class LwAiSearch extends LitElement {
     this._inputValue   = '';
     this._summaryText  = '';
     this._summaryHits  = [];
-    this._detailPost   = null;
     // non-reactive search state
     this._page            = 1;
     this._hasMore         = true;
@@ -1042,6 +1018,7 @@ export class LwAiSearch extends LitElement {
       `--pl-card-radius: ${t.card.cornerRadius}`,
       `--lw-ai-results-title-font: ${t.results.blogTitle.fontFamily}`,
       `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
+      `--lw-ai-results-title-hover-color: ${t.results.blogTitle.hoverColor}`,
       `--lw-ai-results-body-font: ${t.results.bodyText.fontFamily}`,
       `--lw-ai-results-body-color: ${t.results.bodyText.color}`,
       `--lw-ai-results-chip-bg: ${t.results.chip.backgroundColor}`,
@@ -1079,7 +1056,6 @@ export class LwAiSearch extends LitElement {
   _onDocKeydown = (e) => {
     if (e.key !== 'Escape' || !this.modalOpen) return;
     // Escape steps back from a post to the results first.
-    if (this._detailPost) { this.closeDetail(); return; }
     this.closeSearch();
   };
 
@@ -1245,7 +1221,6 @@ export class LwAiSearch extends LitElement {
   }
 
   _teardownModal() {
-    this._detailPost = null;
     this._postCommit = false;
     this.modalOpen   = false;
     document.body.style.overflow = '';
@@ -1317,7 +1292,6 @@ export class LwAiSearch extends LitElement {
   _commitSearch() {
     const q = this._input?.value.trim() || '';
     if (!q || this._searchCommitted) return;
-    this._detailPost = null;
     this._fetchSummary(q);
     this._currentQuery    = q;
     this._searchCommitted = true;
@@ -1378,8 +1352,8 @@ export class LwAiSearch extends LitElement {
         this._results = [...this._results, ...items];
       }
 
-      this._renderMeta(query);
       this._hasMore = items.length === LwAiSearch.pageLimit;
+      this._renderMeta(query);
 
       this.dispatchEvent(new CustomEvent('lw-ask-results', {
         detail:   { query, page: pageNum, results: this._results, total: this._totalHits },
@@ -1412,11 +1386,11 @@ export class LwAiSearch extends LitElement {
     this._summaryText  = '';
     this._summaryHits  = [];
     this._noResults    = false;
-    this._showResults  = false;
-    this._showFeatures = true;
     this._metaVisible  = false;
     this._metaHits     = '';
     this._metaTime     = '';
+    this._showResults  = false;
+    this._showFeatures = true;
   }
 
   // ── Overview: POST {base}/api/v1/search/{index}/summary/stream ──────
@@ -1570,20 +1544,10 @@ export class LwAiSearch extends LitElement {
     this._summaryText  = '';
     this._summaryHits  = [];
     this._noResults    = false;
-    this._metaVisible  = false;
     this._resultsReady = false;
+    this._metaVisible  = false;
     this._metaHits     = '';
     this._metaTime     = '';
-  }
-
-  _renderMeta(query) {
-    if (!query) { this._metaVisible = false; return; }
-    this._metaVisible = true;
-    // The API returns estimatedTotalHits as the corpus size; the page
-    // itself is what is on screen.
-    this._metaHits = `${this._results.length.toLocaleString()} results from ` +
-                     `${this._totalHits.toLocaleString()} items`;
-    this._metaTime = this._totalHits ? `Search time: ${this._totalTime} ms` : '';
   }
 
   _formatDate(str) {
@@ -1591,6 +1555,14 @@ export class LwAiSearch extends LitElement {
     const d = new Date(str);
     return isNaN(d) ? '' : d.toLocaleDateString('en-US',
       { month: 'short', day: '2-digit', year: 'numeric' });
+  }
+
+  _renderMeta(query) {
+    if (!query) { this._metaVisible = false; return; }
+    this._metaVisible = true;
+    this._metaHits = `${this._results.length.toLocaleString()} results from ` +
+                     `${this._totalHits.toLocaleString()} items`;
+    this._metaTime = this._totalHits ? `Search time: ${this._totalTime} ms` : '';
   }
 
   // Questions land on the same page as the circle, with the question
@@ -1680,7 +1652,7 @@ export class LwAiSearch extends LitElement {
            style=${[this._modalTopVar, this._themeStyle].filter(Boolean).join(';')}
            @click=${this._onOverlayClick}>
         <div id="ai-search-modal"
-             class=${this._postCommit || this._detailPost ? 'post-commit' : ''}
+             class=${this._postCommit ? 'post-commit' : ''}
              role="dialog"
              aria-modal="true"
              aria-label=${`${this._resolvedTheme.text.header.text} search`}
@@ -1689,31 +1661,19 @@ export class LwAiSearch extends LitElement {
           <button id="ai-search-close" aria-label="Close search"
                   @click=${this.closeSearch}>&times;</button>
 
-          <div class="client-logo" aria-label="Client logo">
+          <div class="client-logo" aria-label="Logo">
             ${this._resolvedTheme.logo.image
-              ? html`<img src=${this._resolvedTheme.logo.image} alt="Client logo" />`
+              ? html`<img src=${this._resolvedTheme.logo.image} alt="Logo" />`
               : html`
-                <div class="client-logo-placeholder" role="img" aria-label="Client logo placeholder">
+                <div class="client-logo-placeholder" role="img" aria-label="Logo">
                   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
                     <circle cx="8" cy="9" r="1.5" fill="currentColor"/>
                     <path d="m5 17 4.5-4.5a1.5 1.5 0 0 1 2.12 0L14 14.88l1.38-1.38a1.5 1.5 0 0 1 2.12 0L19 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <span>Client logo</span>
+                  <span>Logo</span>
                 </div>`}
           </div>
-
-          ${this._detailPost ? html`
-            <div class="detail-view">
-              <button class="detail-back" @click=${this.closeDetail}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10 3L5 8l5 5"/>
-                </svg>
-                Back to results
-              </button>
-              <lw-blog-details .post=${this._detailPost}></lw-blog-details>
-            </div>` : html`
 
           <div class="hero">
             <h1>${this._resolvedTheme.text.header.text}</h1>
@@ -1784,7 +1744,7 @@ export class LwAiSearch extends LitElement {
             </div>
           </div>
 
-          <div class="modal-loader ${this._loading ? '' : 'is-hidden'}">Searching...</div>`}
+          <div class="modal-loader ${this._loading ? '' : 'is-hidden'}">Searching...</div>
 
           <div class="powered-by">
             ${LwAiSearch.poweredByBadge}
@@ -1830,36 +1790,12 @@ export class LwAiSearch extends LitElement {
     };
   }
 
-  // <lw-blog-list> lets this event bubble when it has no detail-url of
-  // its own, which is exactly the "modal with its own navigation" case.
+  // Search result clicks go directly to the original blog URL.
   _onPostClick(e) {
     const p = e.detail?.post;
     if (!p) return;
-    this._detailPost = {
-      title:      p.title,
-      url:        p.url,
-      image:      p.image,
-      // Deliberately not falling back to `excerpt`: when the backend has
-      // no real summary that holds the raw body, which would duplicate
-      // the Body section below it.
-      summary:    cleanCrawledText(p._summary),
-      author:     p.author,
-      avatar:     p.avatar,
-      date:       p.date,
-      readTime:   p.readTime,
-      postType:   p.category,
-      categories: p._topics,
-      tags:       p._topics,
-      body:       formatCrawledText(p._body).map(text => ({ type: 'paragraph', text })),
-    };
-    // Jump to the top of the modal, which is scrolled down to the result.
-    this.updateComplete.then(() => { if (this._modal) this._modal.scrollTop = 0; });
+    if (p.url) window.location.assign(p.url);
   }
-
-  /** Leave the detail view and go back to the results. */
-  closeDetail = () => {
-    this._detailPost = null;
-  };
 
   _renderQuestions() {
     // At most four questions; "Ask Our Blog" always sits below them.
