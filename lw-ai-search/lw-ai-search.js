@@ -81,6 +81,110 @@ function mergeTheme(base, override) {
   });
   return result;
 }
+
+// The backend theme DTO is intentionally flat, while the component keeps a
+// nested theme object that is easier to consume in its templates and styles.
+// Accept both ASP.NET's usual camelCase JSON and the DTO's PascalCase names.
+const BACKEND_THEME_MAP = {
+  HelperText:                    ['widget', 'helperText'],
+  WidgetBackgroundColor:         ['widget', 'backgroundColor'],
+  WidgetIconColor:               ['widget', 'iconColor'],
+  ButtonBackgroundColor:         ['button', 'backgroundColor'],
+  ButtonTextColor:               ['button', 'textColor'],
+  ButtonOutlineColor:            ['button', 'outlineColor'],
+  ButtonOutlineThickness:        ['button', 'outlineThickness'],
+  ButtonCornerRadius:            ['cornerRadius'],
+  QuestionsFontFamily:           ['questions', 'fontFamily'],
+  QuestionsTextColor:            ['questions', 'textColor'],
+  QuestionsBackgroundColor:      ['questions', 'backgroundColor'],
+  SearchPageBackgroundColor:     ['page', 'backgroundColor'],
+  CloseIconColor:                ['closeIcon', 'color'],
+  SearchCardBackgroundColor:     ['card', 'backgroundColor'],
+  SearchCardTextColor:           ['card', 'textColor'],
+  SearchCardCornerRadius:        ['card', 'cornerRadius'],
+  LogoImageUrl:                  ['logo', 'image'],
+  HeaderText:                    ['text', 'header', 'text'],
+  HeaderTextFontFamily:          ['text', 'header', 'fontFamily'],
+  HeaderTextColor:               ['text', 'header', 'color'],
+  SubtitleText:                  ['text', 'subtitle', 'text'],
+  SubtitleTextFontFamily:        ['text', 'subtitle', 'fontFamily'],
+  SubtitleTextColor:             ['text', 'subtitle', 'color'],
+  SearchText:                    ['text', 'search', 'placeholder'],
+  ResultsHeadingFontFamily:      ['results', 'headings', 'fontFamily'],
+  ResultsHeadingFontColor:       ['results', 'headings', 'color'],
+  ResultsBlogTitleFontFamily:    ['results', 'blogTitle', 'fontFamily'],
+  ResultsBlogTitleFontColor:     ['results', 'blogTitle', 'color'],
+  ResultsBodyTextFontFamily:     ['results', 'bodyText', 'fontFamily'],
+  ResultsBodyTextFontColor:      ['results', 'bodyText', 'color'],
+  ResultsChipBackgroundColor:    ['results', 'chip', 'backgroundColor'],
+  ResultsChipFontColor:          ['results', 'chip', 'color'],
+};
+
+const BACKEND_LENGTH_FIELDS = new Set([
+  'ButtonOutlineThickness',
+  'ButtonCornerRadius',
+  'SearchCardCornerRadius',
+]);
+
+function isUnsetThemeValue(value) {
+  return value == null || (typeof value === 'string' && !value.trim());
+}
+
+function copyConfiguredTheme(value) {
+  if (Array.isArray(value)) return [...value];
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.entries(value).reduce((result, [key, entry]) => {
+    if (isUnsetThemeValue(entry)) return result;
+    const copied = copyConfiguredTheme(entry);
+    if (copied && typeof copied === 'object' && !Array.isArray(copied) && !Object.keys(copied).length) {
+      return result;
+    }
+    result[key] = copied;
+    return result;
+  }, {});
+}
+
+function normalizeCssLength(value) {
+  if (typeof value === 'number') return value === 0 ? '0' : `${value}px`;
+  const text = String(value).trim();
+  if (!text) return '';
+  if (/^-?(?:\d+|\d*\.\d+)$/.test(text)) return Number(text) === 0 ? '0' : `${text}px`;
+  return text;
+}
+
+function normalizeTheme(source = {}) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+
+  // Retain nested frontend-only settings while layering mapped backend values
+  // over them. Null and empty values mean "use the frontend/default value".
+  const normalized = copyConfiguredTheme(source);
+
+  Object.entries(BACKEND_THEME_MAP).forEach(([pascalName, path]) => {
+    const camelName = pascalName.charAt(0).toLowerCase() + pascalName.slice(1);
+    const hasPascal = Object.prototype.hasOwnProperty.call(source, pascalName);
+    const hasCamel = Object.prototype.hasOwnProperty.call(source, camelName);
+    if (!hasPascal && !hasCamel) return;
+
+    const value = hasPascal ? source[pascalName] : source[camelName];
+    if (isUnsetThemeValue(value)) return;
+
+    const normalizedValue = BACKEND_LENGTH_FIELDS.has(pascalName)
+      ? normalizeCssLength(value)
+      : value;
+
+    let target = normalized;
+    path.slice(0, -1).forEach(key => {
+      if (!target[key] || typeof target[key] !== 'object' || Array.isArray(target[key])) {
+        target[key] = {};
+      }
+      target = target[key];
+    });
+    target[path[path.length - 1]] = normalizedValue;
+  });
+
+  return normalized;
+}
 import '../lw-blog-overview/lw-blog-overview.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -245,6 +349,7 @@ export class LwAiSearch extends LitElement {
     _inputValue:   { state: true },
     _summaryText:  { state: true },
     _summaryHits:  { state: true },
+    _backendTheme: { state: true },
   };
 
   // Page size for each search request.
@@ -917,6 +1022,7 @@ export class LwAiSearch extends LitElement {
     this.semanticRatio = 0.5;
     this.searchPlaceholder = 'Ask a question to get instant AI answer';
     this.theme            = {};
+    this._backendTheme    = {};
     this.overviewHeading    = 'Overview';
     this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
@@ -960,6 +1066,7 @@ export class LwAiSearch extends LitElement {
     this._searchCommitted = false;
     this._debounceTimer   = null;
     this._abortController = null;
+    this._themeAbortController = null;
     this._didPushState    = false;
     this._totalHits       = 0;
     this._totalTime       = 0;
@@ -968,11 +1075,9 @@ export class LwAiSearch extends LitElement {
   }
 
   get _resolvedTheme() {
-    const theme = mergeTheme(DEFAULT_AI_THEME, this.theme);
-    if (!this.theme?.text?.subtitle?.text) {
-      theme.text.subtitle.text = 'Find answers instantly';
-    }
-    return theme;
+    const backendTheme = normalizeTheme(this._backendTheme);
+    const localTheme = normalizeTheme(this.theme);
+    return mergeTheme(mergeTheme(DEFAULT_AI_THEME, backendTheme), localTheme);
   }
 
   get _suggestedQuestions() {
@@ -1050,7 +1155,93 @@ export class LwAiSearch extends LitElement {
     if (this.modalOpen) this._teardownModal();
     clearTimeout(this._debounceTimer);
     this._abortController?.abort();
+    this._themeAbortController?.abort();
     super.disconnectedCallback();
+  }
+
+  updated(changedProperties) {
+    if (changedProperties.has('searchBase') ||
+        changedProperties.has('searchKey') ||
+        changedProperties.has('searchIndex')) {
+      this.refreshTheme();
+    }
+  }
+
+  get _themeEndpoint() {
+    const base = (this.searchBase || '').replace(/\/+$/, '');
+    const index = encodeURIComponent(this.searchIndex || 'all');
+    return `${base}/api/v1/widget-styling-configs/${index}`;
+  }
+
+  /** Fetch the latest public styling configuration for this search index. */
+  async refreshTheme() {
+    this._themeAbortController?.abort();
+
+    // The public GET endpoint requires a search access key. Until one is
+    // supplied, render the frontend defaults plus any explicit local theme.
+    if (!this.searchKey) {
+      this._themeAbortController = null;
+      this._backendTheme = {};
+      return null;
+    }
+
+    const controller = new AbortController();
+    this._themeAbortController = controller;
+    this._backendTheme = {};
+
+    try {
+      const response = await fetch(this._themeEndpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-API-Key': this.searchKey,
+        },
+        signal: controller.signal,
+      });
+
+      let payload = {};
+      try {
+        payload = await response.json();
+      } catch {
+        // The status-based error below remains useful for an empty/non-JSON
+        // response, while successful empty responses simply use defaults.
+      }
+
+      if (!response.ok) {
+        const error = new Error(payload.message || `Theme request failed with status ${response.status}`);
+        error.code = payload.error || 'theme_request_failed';
+        error.status = response.status;
+        throw error;
+      }
+
+      if (this._themeAbortController !== controller) return null;
+
+      const config = payload.widgetStylingConfig ?? payload.WidgetStylingConfig;
+      this._backendTheme = config && typeof config === 'object' ? config : {};
+      this.dispatchEvent(new CustomEvent('lw-ai-theme-loaded', {
+        detail: { index: this.searchIndex, theme: this._backendTheme },
+        bubbles: true,
+        composed: true,
+      }));
+      return this._backendTheme;
+    } catch (error) {
+      if (error.name === 'AbortError' || this._themeAbortController !== controller) return null;
+
+      this._backendTheme = {};
+      this.dispatchEvent(new CustomEvent('lw-ai-theme-error', {
+        detail: {
+          index: this.searchIndex,
+          code: error.code || 'theme_request_failed',
+          message: error.message,
+          status: error.status || 0,
+        },
+        bubbles: true,
+        composed: true,
+      }));
+      return null;
+    } finally {
+      if (this._themeAbortController === controller) this._themeAbortController = null;
+    }
   }
 
   _onDocKeydown = (e) => {
