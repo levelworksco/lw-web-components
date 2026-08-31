@@ -40,7 +40,7 @@ const DEFAULT_AI_THEME = {
   text: {
     header: {
       text: 'Search Discover AI',
-      fontFamily: 'DM Sans, sans-serif',
+      fontFamily: 'Inter, sans-serif',
       color: '#1A1A1A',
     },
     subtitle: {
@@ -55,11 +55,11 @@ const DEFAULT_AI_THEME = {
   },
   results: {
     headings: {
-      fontFamily: 'DM Sans, sans-serif',
+      fontFamily: 'Inter, sans-serif',
       color: '#1A1A1A',
     },
     blogTitle: {
-      fontFamily: 'DM Sans, sans-serif',
+      fontFamily: 'Inter, sans-serif',
       color: '#1A1A1A',
       hoverColor: '#555555',
     },
@@ -364,6 +364,7 @@ export class LwAiSearch extends LitElement {
     _summaryText:  { state: true },
     _summaryHits:  { state: true },
     _backendTheme: { state: true },
+    _backendQuestions: { state: true },
   };
 
   // Page size for each search request.
@@ -378,7 +379,7 @@ export class LwAiSearch extends LitElement {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: 'Inter', sans-serif;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -438,7 +439,7 @@ export class LwAiSearch extends LitElement {
       /* Widget › Questions styles these chips as well as the modal's
          question cards. The CTA re-declares its own colours below, so it
          keeps following Widget › Button. */
-      font-family: var(--lw-ai-question-font, inherit);
+      font-family: var(--lw-ai-question-font, 'Inter', sans-serif);
       font-size: 12.5px;
       font-weight: 500;
       line-height: 1.2;
@@ -501,10 +502,10 @@ export class LwAiSearch extends LitElement {
       border-radius: 50%;
       display: grid;
       place-items: center;
-      color: var(--lw-ai-widget-icon-color, #ffffff);
+      color: var(--lw-ai-widget-icon-color, #000000);
       /* The floating widget is themed by the *widget* settings; the
          button settings stay on the CTA / inline button. */
-      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #1A1A1A));
+      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #ffffff));
       cursor: pointer;
       text-decoration: none;
       box-sizing: border-box;
@@ -623,7 +624,7 @@ export class LwAiSearch extends LitElement {
       /* Do not inherit the host page's text colour: the search icon
          draws with currentColor and would vanish on a dark site. */
       color: #0f1724;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', sans-serif;
     }
 
     #ai-search-overlay.open { display: flex; }
@@ -715,10 +716,9 @@ export class LwAiSearch extends LitElement {
     }
 
     .hero h1 {
-      font-family: var(--lw-ask-modal-title-font, Georgia, 'Times New Roman', serif);
       font-size: 34px;
       font-weight: 600;
-      font-family: var(--lw-ai-header-font, Georgia, 'Times New Roman', serif);
+      font-family: var(--lw-ask-modal-title-font, var(--lw-ai-header-font, 'Inter', sans-serif));
       color: var(--lw-ai-header-color, #1a1a1a);
       letter-spacing: -0.01em;
     }
@@ -727,7 +727,7 @@ export class LwAiSearch extends LitElement {
       margin-top: 6px;
       margin-bottom: 34px;
       font-size: 14px;
-      font-family: var(--lw-ai-subtitle-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      font-family: var(--lw-ai-subtitle-font, 'Inter', sans-serif);
       color: var(--lw-ai-subtitle-color, #6b7280);
     }
 
@@ -814,7 +814,7 @@ export class LwAiSearch extends LitElement {
       background: var(--lw-ai-card-bg, #dddddd);
       color: var(--lw-ai-card-color, #000000);
       font: inherit;
-      font-family: var(--lw-ai-question-font, inherit);
+      font-family: var(--lw-ai-question-font, 'Inter', sans-serif);
       font-size: 13px;
       line-height: 1.45;
       text-align: left;
@@ -880,12 +880,12 @@ export class LwAiSearch extends LitElement {
     }
     .searchMeta .metaHits {
       margin-left: 10px;
-      font-family: var(--lw-ai-results-body-font, inherit);
+      font-family: var(--lw-ai-results-body-font, 'Inter', sans-serif);
       color: var(--lw-ai-results-body-color, inherit);
     }
     .searchMeta .metaTime {
       margin-right: 10px;
-      font-family: var(--lw-ai-results-body-font, inherit);
+      font-family: var(--lw-ai-results-body-font, 'Inter', sans-serif);
       color: var(--lw-ai-results-body-color, inherit);
     }
 
@@ -916,7 +916,7 @@ export class LwAiSearch extends LitElement {
       margin: 26px 0 12px;
       font-size: 16px;
       font-weight: 700;
-      font-family: var(--lw-ai-results-heading-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      font-family: var(--lw-ai-results-heading-font, 'Inter', sans-serif);
       color: var(--lw-ai-results-heading-color, #1a1a1a);
     }
 
@@ -1054,6 +1054,7 @@ export class LwAiSearch extends LitElement {
     this.searchPlaceholder = 'Ask a question to get instant AI answer';
     this.theme            = {};
     this._backendTheme    = {};
+    this._backendQuestions = [];
     this.overviewHeading    = 'Overview';
     this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
@@ -1112,6 +1113,9 @@ export class LwAiSearch extends LitElement {
   }
 
   get _suggestedQuestions() {
+    // Backend-managed queries win; the theme items remain the fallback
+    // for when none are configured or the request fails.
+    if (this._backendQuestions?.length) return this._backendQuestions;
     return this._resolvedTheme.suggestedQuestions.items || [];
   }
 
@@ -1129,7 +1133,7 @@ export class LwAiSearch extends LitElement {
       `--lw-ai-button-color: ${t.button.textColor}`,
       `--lw-ai-button-outline: ${t.button.outlineColor}`,
       `--lw-ai-button-outline-width: ${typeof t.button.outlineThickness === 'number' ? `${t.button.outlineThickness}px` : t.button.outlineThickness}`,
-      `--lw-ai-question-font: ${t.questions.fontFamily}`,
+      `--lw-ai-question-font: ${t.questions.fontFamily || 'Inter, sans-serif'}`,
       `--lw-ai-question-bg: ${t.questions.backgroundColor}`,
       `--lw-ai-question-color: ${t.questions.textColor}`,
       `--lw-ai-corner-radius: ${typeof t.cornerRadius === 'number' ? `${t.cornerRadius}px` : t.cornerRadius}`,
@@ -1141,17 +1145,17 @@ export class LwAiSearch extends LitElement {
            `--lw-ai-card-color: ${t.card.textColor}`]
         : []),
       `--lw-ai-card-radius: ${t.card.cornerRadius}`,
-      `--lw-ai-header-font: ${t.text.header.fontFamily}`,
+      `--lw-ai-header-font: ${t.text.header.fontFamily || 'Inter, sans-serif'}`,
       `--lw-ai-header-color: ${t.text.header.color}`,
-      `--lw-ai-subtitle-font: ${t.text.subtitle.fontFamily}`,
+      `--lw-ai-subtitle-font: ${t.text.subtitle.fontFamily || 'Inter, sans-serif'}`,
       `--lw-ai-subtitle-color: ${t.text.subtitle.color}`,
       `--lw-ai-search-color: ${t.text.search.color}`,
       `--lw-ai-search-placeholder: ${t.text.search.placeholder}`,
-      `--lw-ai-results-heading-font: ${t.results.headings.fontFamily}`,
+      `--lw-ai-results-heading-font: ${t.results.headings.fontFamily || 'Inter, sans-serif'}`,
       `--lw-ai-results-heading-color: ${t.results.headings.color}`,
-      `--pl-title-font-family: ${t.results.blogTitle.fontFamily}`,
+      `--pl-title-font-family: ${t.results.blogTitle.fontFamily || 'Inter, sans-serif'}`,
       `--pl-title-color: ${t.results.blogTitle.color}`,
-      `--pl-excerpt-font-family: ${t.results.bodyText.fontFamily}`,
+      `--pl-excerpt-font-family: ${t.results.bodyText.fontFamily || 'Inter, sans-serif'}`,
       `--pl-excerpt-color: ${t.results.bodyText.color}`,
       `--pl-category-bg: ${t.results.chip.backgroundColor}`,
       `--pl-category-color: ${t.results.chip.color}`,
@@ -1160,10 +1164,10 @@ export class LwAiSearch extends LitElement {
            `--pl-card-text-color: ${t.card.textColor}`]
         : []),
       `--pl-card-radius: ${t.card.cornerRadius}`,
-      `--lw-ai-results-title-font: ${t.results.blogTitle.fontFamily}`,
+      `--lw-ai-results-title-font: ${t.results.blogTitle.fontFamily || 'Inter, sans-serif'}`,
       `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
       `--lw-ai-results-title-hover-color: ${t.results.blogTitle.hoverColor}`,
-      `--lw-ai-results-body-font: ${t.results.bodyText.fontFamily}`,
+      `--lw-ai-results-body-font: ${t.results.bodyText.fontFamily || 'Inter, sans-serif'}`,
       `--lw-ai-results-body-color: ${t.results.bodyText.color}`,
       `--lw-ai-results-chip-bg: ${t.results.chip.backgroundColor}`,
       `--lw-ai-results-chip-color: ${t.results.chip.color}`,
@@ -1202,7 +1206,10 @@ export class LwAiSearch extends LitElement {
     if (changedProperties.has('searchBase') ||
         changedProperties.has('searchKey') ||
         changedProperties.has('searchIndex')) {
-      this.refreshTheme();
+      // The suggested queries run after the theme: the tenant-scoped
+      // endpoint is not available on the deployed API yet, and the
+      // fallback needs the ids the styling config returns.
+      this.refreshTheme().finally(() => this.refreshSuggestedQueries());
     }
   }
 
@@ -1210,6 +1217,97 @@ export class LwAiSearch extends LitElement {
     const base = (this.searchBase || '').replace(/\/+$/, '');
     const index = encodeURIComponent(this.searchIndex || 'all');
     return `${base}/api/v1/widget-styling-configs/${index}`;
+  }
+
+  get _suggestedQueriesEndpoint() {
+    const base  = (this.searchBase || '').replace(/\/+$/, '');
+    const index = encodeURIComponent(this.searchIndex || 'all');
+    return `${base}/api/v1/indexes/${index}/suggested-queries`;
+  }
+
+  get _suggestedQueriesListEndpoint() {
+    const base = (this.searchBase || '').replace(/\/+$/, '');
+    return `${base}/api/v1/indexes/suggested-queries`;
+  }
+
+  /**
+   * Suggested question chips for this index.
+   *
+   * Prefers the tenant-scoped endpoint, which is key-scoped and ordered
+   * by displayOrder. That route currently answers 405 on the deployed
+   * API, so it falls back to the anonymous all-clients list and picks
+   * the entry matching this index — every index is named "all", so the
+   * match is on searchIndexId/clientId from the styling config, never
+   * on the name.
+   */
+  async refreshSuggestedQueries() {
+    this._questionsAbortController?.abort();
+    const controller = new AbortController();
+    this._questionsAbortController = controller;
+
+    const finish = (items, source) => {
+      if (this._questionsAbortController !== controller) return null;
+      this._backendQuestions = items;
+      this.dispatchEvent(new CustomEvent('lw-ai-questions-loaded', {
+        detail: { index: this.searchIndex, source, questions: items },
+        bubbles: true,
+        composed: true,
+      }));
+      return items;
+    };
+
+    try {
+      // 1. tenant-scoped, keyed
+      if (this.searchKey) {
+        const res = await fetch(this._suggestedQueriesEndpoint, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json', 'X-API-Key': this.searchKey },
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length) {
+            const items = [...rows]
+              .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+              .map(r => r.queryText)
+              .filter(Boolean);
+            if (items.length) return finish(items, 'index');
+          }
+          return finish([], 'index');
+        }
+      }
+
+      // 2. anonymous list, matched on the ids the theme gave us
+      const listRes = await fetch(this._suggestedQueriesListEndpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
+      });
+      if (!listRes.ok) throw new Error(`Suggested queries failed: ${listRes.status}`);
+
+      const list = await listRes.json();
+      const indexId  = this._backendTheme?.searchIndexId ?? this._backendTheme?.SearchIndexId;
+      const clientId = this._backendTheme?.clientId ?? this._backendTheme?.ClientId;
+      const entry = Array.isArray(list)
+        ? list.find(e => indexId && e.searchIndexId === indexId)
+          ?? list.find(e => clientId && e.clientId === clientId)
+        : null;
+
+      // Without ids there is no way to tell the tenants apart, so leave
+      // the configured defaults in place rather than guessing.
+      if (!entry) return finish([], 'unmatched');
+      return finish((entry.queries || []).filter(Boolean), 'list');
+    } catch (error) {
+      if (error.name === 'AbortError' || this._questionsAbortController !== controller) return null;
+      console.error('<lw-ai-search> suggested queries:', error);
+      this._backendQuestions = [];
+      this.dispatchEvent(new CustomEvent('lw-ai-questions-error', {
+        detail: { index: this.searchIndex, message: error.message },
+        bubbles: true,
+        composed: true,
+      }));
+      return null;
+    }
   }
 
   /** Fetch the latest public styling configuration for this search index. */
