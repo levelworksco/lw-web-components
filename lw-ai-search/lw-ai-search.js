@@ -6,14 +6,14 @@ const DEFAULT_AI_THEME = {
   widget: {
     style: 'icon-text',
     helperText: 'Ask me anything',
-    backgroundColor: '#1A1A1A',
-    iconColor: '#FFFFFF',
+    backgroundColor: '#ffffff',
+    iconColor: '#000000',
   },
   button: {
-    backgroundColor: '#1A1A1A',
-    textColor: '#FFFFFF',
-    outlineColor: 'transparent',
-    outlineThickness: 0,
+    backgroundColor: '#000000',
+    textColor: '#ffffff',
+    outlineColor: '#ffffff',
+    outlineThickness: 2,
   },
   questions: {
     fontFamily: 'Inter, sans-serif',
@@ -29,10 +29,10 @@ const DEFAULT_AI_THEME = {
       'How do I get started?',
     ],
   },
-  page: { backgroundColor: '#F4F4F4' },
+  page: { backgroundColor: '#ffffff' },
   closeIcon: { color: '#6B6B6E' },
   card: {
-    backgroundColor: '#00000000',
+    backgroundColor: '#ffffff',
     textColor: '#1A1A1A',
     cornerRadius: '8px',
   },
