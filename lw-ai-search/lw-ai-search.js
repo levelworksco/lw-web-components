@@ -481,7 +481,9 @@ export class LwAiSearch extends LitElement {
       display: grid;
       place-items: center;
       color: var(--lw-ai-widget-icon-color, #ffffff);
-      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1E7A4A));
+      /* The floating widget is themed by the *widget* settings; the
+         button settings stay on the CTA / inline button. */
+      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #1E7A4A));
       cursor: pointer;
       text-decoration: none;
       box-sizing: border-box;
@@ -497,7 +499,7 @@ export class LwAiSearch extends LitElement {
     }
 
     .fab:focus-visible {
-      outline: 2px solid var(--lw-ai-button-outline, var(--lw-ask-accent, #1E7A4A));
+      outline: 2px solid var(--lw-ai-widget-bg, var(--lw-ask-accent, #1E7A4A));
       outline-offset: 3px;
     }
 
@@ -1090,6 +1092,7 @@ export class LwAiSearch extends LitElement {
       `--lw-ask-accent: ${t.widget.backgroundColor}`,
       `--lw-ask-accent-hover: ${t.widget.backgroundColor}`,
       `--lw-ai-widget-icon-color: ${t.widget.iconColor}`,
+      `--lw-ai-widget-bg: ${t.widget.backgroundColor}`,
       `--lw-ai-button-bg: ${t.button.backgroundColor}`,
       `--lw-ai-button-color: ${t.button.textColor}`,
       `--lw-ai-button-outline: ${t.button.outlineColor}`,
