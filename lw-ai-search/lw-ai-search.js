@@ -483,7 +483,7 @@ export class LwAiSearch extends LitElement {
       color: var(--lw-ai-widget-icon-color, #ffffff);
       /* The floating widget is themed by the *widget* settings; the
          button settings stay on the CTA / inline button. */
-      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #1E7A4A));
+      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #444444));
       cursor: pointer;
       text-decoration: none;
       box-sizing: border-box;
