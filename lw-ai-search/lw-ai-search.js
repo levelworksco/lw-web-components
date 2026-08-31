@@ -130,6 +130,20 @@ function isUnsetThemeValue(value) {
   return value == null || (typeof value === 'string' && !value.trim());
 }
 
+/**
+ * A fully transparent card colour means "no card surface configured".
+ * The card variables are then left unset so each surface falls back to
+ * its own default — coloured chips for the question cards, a flat
+ * borderless row for the search results.
+ */
+function isTransparentColor(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return v === 'transparent'
+      || /^#[0-9a-f]{6}00$/.test(v)
+      || /^#[0-9a-f]{3}0$/.test(v)
+      || /^rgba\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*0*\.?0+\s*\)$/.test(v);
+}
+
 function copyConfiguredTheme(value) {
   if (Array.isArray(value)) return [...value];
   if (!value || typeof value !== 'object') return value;
@@ -421,11 +435,15 @@ export class LwAiSearch extends LitElement {
     .pill {
       appearance: none;
       font: inherit;
+      /* Widget › Questions styles these chips as well as the modal's
+         question cards. The CTA re-declares its own colours below, so it
+         keeps following Widget › Button. */
+      font-family: var(--lw-ai-question-font, inherit);
       font-size: 12.5px;
       font-weight: 500;
       line-height: 1.2;
-      color: #1f2937;
-      background: #ffffff;
+      color: var(--lw-ai-question-color, #1f2937);
+      background: var(--lw-ai-question-bg, #ffffff);
       border: 1px solid rgba(17, 17, 17, 0.06);
       border-radius: 999px;
       padding: 8px 15px;
@@ -448,7 +466,10 @@ export class LwAiSearch extends LitElement {
     :host([open]) .pill { opacity: 1; transform: none; }
 
     .pill:hover {
-      background: #fbfbfb;
+      /* Darken whatever the themed background is, rather than forcing a
+         fixed near-white that would ignore Widget › Questions. */
+      background: var(--lw-ai-question-bg, #fbfbfb);
+      filter: brightness(0.97);
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
     }
 
@@ -783,9 +804,15 @@ export class LwAiSearch extends LitElement {
       width: 200px;
       min-height: 104px;
       padding: 15px 16px;
-      border-radius: var(--lw-ai-corner-radius, 10px);
-      background: var(--lw-ai-question-bg, var(--lw-ai-card-bg, var(--lw-ask-accent, #1E7A4A)));
-      color: var(--lw-ai-question-color, var(--lw-ai-card-color, #ffffff));
+      /* Search Page › Card drives these cards; Widget › Questions styles
+         the hover-panel pills instead. Card has no font setting of its
+         own, so the Questions font still applies to the text. */
+      border-radius: var(--lw-ai-card-radius, var(--lw-ai-corner-radius, 10px));
+      /* No accent link here: these cards follow Search Page › Card, so
+         with no card surface configured they use this neutral default
+         rather than the widget accent. */
+      background: var(--lw-ai-card-bg, #dddddd);
+      color: var(--lw-ai-card-color, #000000);
       font: inherit;
       font-family: var(--lw-ai-question-font, inherit);
       font-size: 13px;
@@ -800,7 +827,9 @@ export class LwAiSearch extends LitElement {
     }
 
     .question-card:hover {
-      background: var(--lw-ai-question-bg, var(--lw-ai-card-bg, var(--lw-ask-accent-hover, #17603A)));
+      /* Darken the themed card colour rather than replacing it. */
+      background: var(--lw-ai-card-bg, #dddddd);
+      filter: brightness(0.97);
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
     }
     .question-card:active { transform: scale(0.98); }
@@ -1088,6 +1117,9 @@ export class LwAiSearch extends LitElement {
 
   get _themeStyle() {
     const t = this._resolvedTheme;
+    // Only publish the card colours once a real surface is configured —
+    // see isTransparentColor().
+    const hasCardSurface = !isTransparentColor(t.card.backgroundColor);
     return [
       `--lw-ask-accent: ${t.widget.backgroundColor}`,
       `--lw-ask-accent-hover: ${t.widget.backgroundColor}`,
@@ -1104,8 +1136,10 @@ export class LwAiSearch extends LitElement {
       `--lw-ai-widget-style: ${t.widget.style}`,
       `--lw-ai-page-bg: ${t.page.backgroundColor}`,
       `--lw-ai-close-color: ${t.closeIcon.color}`,
-      `--lw-ai-card-bg: ${t.card.backgroundColor}`,
-      `--lw-ai-card-color: ${t.card.textColor}`,
+      ...(hasCardSurface
+        ? [`--lw-ai-card-bg: ${t.card.backgroundColor}`,
+           `--lw-ai-card-color: ${t.card.textColor}`]
+        : []),
       `--lw-ai-card-radius: ${t.card.cornerRadius}`,
       `--lw-ai-header-font: ${t.text.header.fontFamily}`,
       `--lw-ai-header-color: ${t.text.header.color}`,
@@ -1121,8 +1155,10 @@ export class LwAiSearch extends LitElement {
       `--pl-excerpt-color: ${t.results.bodyText.color}`,
       `--pl-category-bg: ${t.results.chip.backgroundColor}`,
       `--pl-category-color: ${t.results.chip.color}`,
-      `--pl-card-background: ${t.card.backgroundColor}`,
-      `--pl-card-text-color: ${t.card.textColor}`,
+      ...(hasCardSurface
+        ? [`--pl-card-background: ${t.card.backgroundColor}`,
+           `--pl-card-text-color: ${t.card.textColor}`]
+        : []),
       `--pl-card-radius: ${t.card.cornerRadius}`,
       `--lw-ai-results-title-font: ${t.results.blogTitle.fontFamily}`,
       `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
