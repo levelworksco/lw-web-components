@@ -6,11 +6,11 @@ const DEFAULT_AI_THEME = {
   widget: {
     style: 'icon-text',
     helperText: 'Ask me anything',
-    backgroundColor: '#F58635',
+    backgroundColor: '#1A1A1A',
     iconColor: '#FFFFFF',
   },
   button: {
-    backgroundColor: '#F58635',
+    backgroundColor: '#1A1A1A',
     textColor: '#FFFFFF',
     outlineColor: 'transparent',
     outlineThickness: 0,
@@ -453,7 +453,7 @@ export class LwAiSearch extends LitElement {
     }
 
     .pill:focus-visible {
-      outline: 2px solid var(--lw-ask-accent, #1E7A4A);
+      outline: 2px solid var(--lw-ask-accent, #1A1A1A);
       outline-offset: 2px;
     }
 
@@ -465,10 +465,10 @@ export class LwAiSearch extends LitElement {
       gap: 6px;
       font-weight: 600;
       color: var(--lw-ai-button-color, #ffffff);
-      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1E7A4A));
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
       border: var(--lw-ai-button-outline-width, 0px) solid var(--lw-ai-button-outline, transparent);
     }
-    .cta:hover { background: var(--lw-ai-button-bg, var(--lw-ask-accent-hover, #17603A)); }
+    .cta:hover { background: var(--lw-ai-button-bg, var(--lw-ask-accent-hover, #1A1A1A)); }
     .cta svg   { flex-shrink: 0; }
 
     /* ── Floating button ── */
@@ -483,7 +483,7 @@ export class LwAiSearch extends LitElement {
       color: var(--lw-ai-widget-icon-color, #ffffff);
       /* The floating widget is themed by the *widget* settings; the
          button settings stay on the CTA / inline button. */
-      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #444444));
+      background: var(--lw-ai-widget-bg, var(--lw-ask-accent, #1A1A1A));
       cursor: pointer;
       text-decoration: none;
       box-sizing: border-box;
@@ -499,7 +499,7 @@ export class LwAiSearch extends LitElement {
     }
 
     .fab:focus-visible {
-      outline: 2px solid var(--lw-ai-widget-bg, var(--lw-ask-accent, #1E7A4A));
+      outline: 2px solid var(--lw-ai-widget-bg, var(--lw-ask-accent, #1A1A1A));
       outline-offset: 3px;
     }
 
@@ -533,7 +533,7 @@ export class LwAiSearch extends LitElement {
       width: var(--lw-ask-btn-width, auto);
       padding: var(--lw-ask-btn-padding, 13px 22px);
       border-radius: var(--lw-ai-corner-radius, var(--lw-ask-btn-radius, 6px));
-      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1E7A4A));
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
       color: var(--lw-ai-button-color, #ffffff);
       font: inherit;
       font-size: var(--lw-ask-btn-font-size, 16px);
@@ -548,11 +548,11 @@ export class LwAiSearch extends LitElement {
       transition: background 0.15s, transform 0.1s;
     }
 
-    .btn:hover  { background: var(--lw-ai-button-bg, var(--lw-ask-accent-hover, #17603A)); }
+    .btn:hover  { background: var(--lw-ai-button-bg, var(--lw-ask-accent-hover, #1A1A1A)); }
     .btn:active { transform: scale(0.97); }
 
     .btn:focus-visible {
-      outline: 2px solid var(--lw-ai-button-outline, var(--lw-ask-accent, #1E7A4A));
+      outline: 2px solid var(--lw-ai-button-outline, var(--lw-ask-accent, #1A1A1A));
       outline-offset: 3px;
     }
 
