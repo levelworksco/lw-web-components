@@ -10,9 +10,9 @@ const DEFAULT_AI_THEME = {
     iconColor: '#FFFFFF',
   },
   button: {
-    backgroundColor: '#0ddb7e',
+    backgroundColor: '#F58635',
     textColor: '#FFFFFF',
-    outlineColor: '#055337',
+    outlineColor: 'transparent',
     outlineThickness: 0,
   },
   questions: {
@@ -29,7 +29,7 @@ const DEFAULT_AI_THEME = {
       'How do I get started?',
     ],
   },
-  page: { backgroundColor: '#373737' },
+  page: { backgroundColor: '#F4F4F4' },
   closeIcon: { color: '#6B6B6E' },
   card: {
     backgroundColor: '#00000000',
@@ -41,7 +41,7 @@ const DEFAULT_AI_THEME = {
     header: {
       text: 'Search Discover AI',
       fontFamily: 'DM Sans, sans-serif',
-      color: '#f4efef',
+      color: '#1A1A1A',
     },
     subtitle: {
       text: 'Find answers instantly',
@@ -56,18 +56,18 @@ const DEFAULT_AI_THEME = {
   results: {
     headings: {
       fontFamily: 'DM Sans, sans-serif',
-      color: '#e21212',
+      color: '#1A1A1A',
     },
     blogTitle: {
       fontFamily: 'DM Sans, sans-serif',
-      color: '#00f5a3',
-      hoverColor: '#009205',
+      color: '#1A1A1A',
+      hoverColor: '#555555',
     },
     bodyText: {
       fontFamily: 'Inter, sans-serif',
-      color: '#e3e3e9',
+      color: '#9AA1A8',
     },
-    chip: { backgroundColor: '#ffcbaf', color: '#1A1A1A' },
+    chip: { backgroundColor: '#FEF3EB', color: '#F58635' },
     lineColor: '#E5E5E5',
   },
 };
