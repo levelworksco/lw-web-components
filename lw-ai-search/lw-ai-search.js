@@ -199,6 +199,83 @@ function normalizeTheme(source = {}) {
 
   return normalized;
 }
+
+const GOOGLE_FONT_LOADS = new Map();
+const GENERIC_FONT_FAMILIES = new Set([
+  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui',
+  'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded', 'emoji',
+  'math', 'fangsong',
+]);
+
+function googleFontName(value) {
+  const firstFamily = String(value ?? '').split(',')[0].trim();
+  const unquoted = firstFamily.replace(/^(['"])(.*)\1$/, '$2').trim();
+  if (!unquoted || GENERIC_FONT_FAMILIES.has(unquoted.toLowerCase())) return '';
+  return unquoted.replace(/\s+/g, ' ');
+}
+
+function fontFamilyStack(value) {
+  const name = googleFontName(value);
+  if (!name || name.toLowerCase() === 'inter') return "'Inter', sans-serif";
+  const escapedName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `"${escapedName}", 'Inter', sans-serif`;
+}
+
+function themeFontFamilies(theme) {
+  return [...new Set([
+    theme.questions?.fontFamily,
+    theme.text?.header?.fontFamily,
+    theme.text?.subtitle?.fontFamily,
+    theme.results?.headings?.fontFamily,
+    theme.results?.blogTitle?.fontFamily,
+    theme.results?.bodyText?.fontFamily,
+  ].map(googleFontName).filter(Boolean))];
+}
+
+function loadGoogleFont(value) {
+  const name = googleFontName(value);
+  if (!name || typeof document === 'undefined' || !document.head) {
+    return Promise.resolve(false);
+  }
+
+  const key = name.toLowerCase();
+  if (GOOGLE_FONT_LOADS.has(key)) return GOOGLE_FONT_LOADS.get(key);
+
+  const encodedName = encodeURIComponent(name).replace(/%20/g, '+');
+  const href = `https://fonts.googleapis.com/css2?family=${encodedName}:wght@400&display=swap`;
+  const promise = new Promise(resolve => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.dataset.lwGoogleFont = name;
+
+    let settled = false;
+    const finish = loaded => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve(loaded);
+    };
+    const timeout = setTimeout(() => finish(false), 10000);
+
+    link.addEventListener('load', async () => {
+      try {
+        if (document.fonts?.load) {
+          const cssName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          await document.fonts.load(`400 1em "${cssName}"`, 'BESbswy');
+        }
+        finish(true);
+      } catch {
+        finish(false);
+      }
+    }, { once: true });
+    link.addEventListener('error', () => finish(false), { once: true });
+    document.head.append(link);
+  });
+
+  GOOGLE_FONT_LOADS.set(key, promise);
+  return promise;
+}
 import '../lw-blog-overview/lw-blog-overview.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -292,7 +369,7 @@ import '../lw-blog-overview/lw-blog-overview.js';
 //   --lw-ask-backdrop      overlay behind the modal  (transparent)
 //   --lw-ask-modal-top     gap above the modal       (0)
 //   --lw-ask-modal-bg      modal page background     (#f4f4f4)
-//   --lw-ask-modal-title-font  hero heading font     (serif)
+//   --lw-ask-modal-title-font  hero heading font     (Inter)
 // ─────────────────────────────────────────────────────────────
 
 // Only one modal can be up at a time, and Back must close exactly that
@@ -1123,6 +1200,12 @@ export class LwAiSearch extends LitElement {
 
   get _themeStyle() {
     const t = this._resolvedTheme;
+    const questionFont = fontFamilyStack(t.questions.fontFamily);
+    const headerFont = fontFamilyStack(t.text.header.fontFamily);
+    const subtitleFont = fontFamilyStack(t.text.subtitle.fontFamily);
+    const resultsHeadingFont = fontFamilyStack(t.results.headings.fontFamily);
+    const resultsTitleFont = fontFamilyStack(t.results.blogTitle.fontFamily);
+    const resultsBodyFont = fontFamilyStack(t.results.bodyText.fontFamily);
     // Only publish the card colours once a real surface is configured —
     // see isTransparentColor().
     const hasCardSurface = !isTransparentColor(t.card.backgroundColor);
@@ -1135,7 +1218,7 @@ export class LwAiSearch extends LitElement {
       `--lw-ai-button-color: ${t.button.textColor}`,
       `--lw-ai-button-outline: ${t.button.outlineColor}`,
       `--lw-ai-button-outline-width: ${typeof t.button.outlineThickness === 'number' ? `${t.button.outlineThickness}px` : t.button.outlineThickness}`,
-      `--lw-ai-question-font: Inter, sans-serif`,
+      `--lw-ai-question-font: ${questionFont}`,
       `--lw-ai-question-bg: ${t.questions.backgroundColor}`,
       `--lw-ai-question-color: ${t.questions.textColor}`,
       `--lw-ai-corner-radius: ${typeof t.cornerRadius === 'number' ? `${t.cornerRadius}px` : t.cornerRadius}`,
@@ -1147,18 +1230,18 @@ export class LwAiSearch extends LitElement {
            `--lw-ai-card-color: ${t.card.textColor}`]
         : []),
       `--lw-ai-card-radius: ${t.card.cornerRadius}`,
-      `--lw-ask-modal-title-font: Inter, sans-serif`,
-      `--lw-ai-header-font: Inter, sans-serif`,
+      `--lw-ask-modal-title-font: ${headerFont}`,
+      `--lw-ai-header-font: ${headerFont}`,
       `--lw-ai-header-color: ${t.text.header.color}`,
-      `--lw-ai-subtitle-font: Inter, sans-serif`,
+      `--lw-ai-subtitle-font: ${subtitleFont}`,
       `--lw-ai-subtitle-color: ${t.text.subtitle.color}`,
       `--lw-ai-search-color: ${t.text.search.color}`,
       `--lw-ai-search-placeholder: ${t.text.search.placeholder}`,
-      `--lw-ai-results-heading-font: Inter, sans-serif`,
+      `--lw-ai-results-heading-font: ${resultsHeadingFont}`,
       `--lw-ai-results-heading-color: ${t.results.headings.color}`,
-      `--pl-title-font-family: Inter, sans-serif`,
+      `--pl-title-font-family: ${resultsTitleFont}`,
       `--pl-title-color: ${t.results.blogTitle.color}`,
-      `--pl-excerpt-font-family: Inter, sans-serif`,
+      `--pl-excerpt-font-family: ${resultsBodyFont}`,
       `--pl-excerpt-color: ${t.results.bodyText.color}`,
       `--pl-category-bg: ${t.results.chip.backgroundColor}`,
       `--pl-category-color: ${t.results.chip.color}`,
@@ -1167,10 +1250,10 @@ export class LwAiSearch extends LitElement {
            `--pl-card-text-color: ${t.card.textColor}`]
         : []),
       `--pl-card-radius: ${t.card.cornerRadius}`,
-      `--lw-ai-results-title-font: Inter, sans-serif`,
+      `--lw-ai-results-title-font: ${resultsTitleFont}`,
       `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
       `--lw-ai-results-title-hover-color: ${t.results.blogTitle.hoverColor}`,
-      `--lw-ai-results-body-font: Inter, sans-serif`,
+      `--lw-ai-results-body-font: ${resultsBodyFont}`,
       `--lw-ai-results-body-color: ${t.results.bodyText.color}`,
       `--lw-ai-results-chip-bg: ${t.results.chip.backgroundColor}`,
       `--lw-ai-results-chip-color: ${t.results.chip.color}`,
@@ -1182,6 +1265,7 @@ export class LwAiSearch extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    Promise.all(themeFontFamilies(this._resolvedTheme).map(loadGoogleFont));
     this.addEventListener('mouseenter', this._onEnter);
     this.addEventListener('mouseleave', this._onLeave);
     this.addEventListener('focusin',    this._onEnter);
@@ -1206,6 +1290,9 @@ export class LwAiSearch extends LitElement {
   }
 
   updated(changedProperties) {
+    if (changedProperties.has('theme')) {
+      Promise.all(themeFontFamilies(this._resolvedTheme).map(loadGoogleFont));
+    }
     if (changedProperties.has('searchBase') ||
         changedProperties.has('searchKey') ||
         changedProperties.has('searchIndex')) {
@@ -1357,7 +1444,18 @@ export class LwAiSearch extends LitElement {
       if (this._themeAbortController !== controller) return null;
 
       const config = payload.widgetStylingConfig ?? payload.WidgetStylingConfig;
-      this._backendTheme = config && typeof config === 'object' ? config : {};
+      const nextBackendTheme = config && typeof config === 'object' ? config : {};
+      const nextResolvedTheme = mergeTheme(
+        mergeTheme(DEFAULT_AI_THEME, normalizeTheme(nextBackendTheme)),
+        normalizeTheme(this.theme),
+      );
+
+      // Keep the current Inter typography until every requested regular
+      // font is ready, then apply the backend theme in one update.
+      await Promise.all(themeFontFamilies(nextResolvedTheme).map(loadGoogleFont));
+      if (this._themeAbortController !== controller) return null;
+
+      this._backendTheme = nextBackendTheme;
       this.dispatchEvent(new CustomEvent('lw-ai-theme-loaded', {
         detail: { index: this.searchIndex, theme: this._backendTheme },
         bubbles: true,
