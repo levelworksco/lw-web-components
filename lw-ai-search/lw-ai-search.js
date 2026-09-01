@@ -446,7 +446,9 @@ export class LwAiSearch extends LitElement {
       color: var(--lw-ai-question-color, #1f2937);
       background: var(--lw-ai-question-bg, #ffffff);
       border: 1px solid rgba(17, 17, 17, 0.06);
-      border-radius: 999px;
+      /* Widget › Button › Corner Radius. Falls back to the fully
+         rounded chip when nothing is configured. */
+      border-radius: var(--lw-ai-corner-radius, 999px);
       padding: 8px 15px;
       max-width: min(340px, calc(100vw - 3rem));
       white-space: nowrap;
