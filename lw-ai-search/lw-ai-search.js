@@ -1245,10 +1245,9 @@ export class LwAiSearch extends LitElement {
       `--pl-excerpt-color: ${t.results.bodyText.color}`,
       `--pl-category-bg: ${t.results.chip.backgroundColor}`,
       `--pl-category-color: ${t.results.chip.color}`,
-      ...(hasCardSurface
-        ? [`--pl-card-background: ${t.card.backgroundColor}`,
-           `--pl-card-text-color: ${t.card.textColor}`]
-        : []),
+      // Card Background is deliberately NOT forwarded to the result rows:
+      // it styles the search-page question cards only. Result rows keep
+      // their own flat/transparent surface from <lw-blog-list-item>.
       `--pl-card-radius: ${t.card.cornerRadius}`,
       `--lw-ai-results-title-font: ${resultsTitleFont}`,
       `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
