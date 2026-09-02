@@ -86,6 +86,7 @@ function mergeTheme(base, override) {
 // nested theme object that is easier to consume in its templates and styles.
 // Accept both ASP.NET's usual camelCase JSON and the DTO's PascalCase names.
 const BACKEND_THEME_MAP = {
+  WidgetStyle:                   ['widget', 'style'],
   HelperText:                    ['widget', 'helperText'],
   WidgetBackgroundColor:         ['widget', 'backgroundColor'],
   WidgetIconColor:               ['widget', 'iconColor'],
@@ -125,6 +126,20 @@ const BACKEND_LENGTH_FIELDS = new Set([
   'ButtonCornerRadius',
   'SearchCardCornerRadius',
 ]);
+
+/**
+ * Widget Style is a closed set rather than a free-form theme value: the
+ * admin panel writes exactly "icon" or "icon-text", and a freshly created
+ * config row comes back as "". Empty, missing, or unrecognised values must
+ * resolve to the labelled launcher instead of reaching the render path.
+ */
+const WIDGET_STYLES = new Set(['icon', 'icon-text']);
+const DEFAULT_WIDGET_STYLE = 'icon-text';
+
+function normalizeWidgetStyle(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return WIDGET_STYLES.has(v) ? v : DEFAULT_WIDGET_STYLE;
+}
 
 function isUnsetThemeValue(value) {
   return value == null || (typeof value === 'string' && !value.trim());
@@ -418,6 +433,7 @@ export class LwAiSearch extends LitElement {
     trigger:    { type: String                           },
     btnType:    { type: String,  attribute: 'btn-type', reflect: true },
     btnLabel:   { type: String,  attribute: 'btn-label'   },
+    widgetStyle:{ type: String,  attribute: 'widget-style' },
     btnSubtext: { type: String,  attribute: 'btn-subtext' },
     label:      { type: String                           },
     open:       { type: Boolean, reflect: true           },
@@ -608,6 +624,31 @@ export class LwAiSearch extends LitElement {
     .fab-icon {
       width: 90%;
       height: 90%;
+    }
+
+    /* Widget Style "icon-text": the launcher grows into a labelled pill.
+       "icon" -- the only other allowed value -- keeps the circle above. */
+    .fab[data-style="icon-text"] {
+      width: auto;
+      height: auto;
+      min-height: var(--lw-ask-size, 46px);
+      border-radius: 999px;
+      grid-auto-flow: column;
+      gap: 8px;
+      padding: 0 18px;
+    }
+
+    .fab[data-style="icon-text"] .fab-icon {
+      width:  var(--lw-ask-icon-size, 22px);
+      height: var(--lw-ask-icon-size, 22px);
+    }
+
+    .fab-label {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+      color: inherit;
     }
 
     /* ── Inline mode: btn-type="normal" ──
@@ -1149,6 +1190,7 @@ export class LwAiSearch extends LitElement {
     // sit inline wherever it is placed in the page.
     this.btnType    = 'float';
     this.btnLabel   = 'Search with AI';
+    this.widgetStyle = '';
     this.btnSubtext = '';
     this.label      = 'Ask our blog';
     this.open       = false;
@@ -1222,7 +1264,6 @@ export class LwAiSearch extends LitElement {
       `--lw-ai-question-bg: ${t.questions.backgroundColor}`,
       `--lw-ai-question-color: ${t.questions.textColor}`,
       `--lw-ai-corner-radius: ${typeof t.cornerRadius === 'number' ? `${t.cornerRadius}px` : t.cornerRadius}`,
-      `--lw-ai-widget-style: ${t.widget.style}`,
       `--lw-ai-page-bg: ${t.page.backgroundColor}`,
       `--lw-ai-close-color: ${t.closeIcon.color}`,
       ...(hasCardSurface
@@ -1488,6 +1529,19 @@ export class LwAiSearch extends LitElement {
   };
 
 
+
+  /**
+   * Collapsed launcher presentation: 'icon' or 'icon-text'.
+   *
+   * Independent of btn-type, which decides *where* the launcher sits
+   * (floating vs inline); this decides whether it carries a label. A
+   * widget-style attribute on the tag wins over the backend config, the
+   * same precedence every other theme value follows.
+   */
+  get _launcherStyle() {
+    const local = String(this.widgetStyle ?? '').trim();
+    return normalizeWidgetStyle(local || this._resolvedTheme.widget.style);
+  }
 
   /** True when btn-type asks for an inline (non-fixed) button. */
   get _inline() {
@@ -2046,20 +2100,22 @@ export class LwAiSearch extends LitElement {
   }
 
   _renderInlineButton() {
+    const style = this._launcherStyle;
     const inner = html`${LwAiSearch.aiIcon}
-      ${this._resolvedTheme.widget.style === 'icon-only' ? '' : this.btnLabel}`;
+      ${style === 'icon' ? '' : this.btnLabel}`;
     return html`
       ${this.href
         ? html`
           <a class="btn"
+             data-style=${style}
              href=${this.href}
              target=${this.target || '_self'}
              rel=${this.target === '_blank' ? 'noreferrer noopener' : ''}
              @click=${this._onInlineFab}>${inner}</a>`
         : html`
-          <button class="btn" @click=${this._onInlineFab}>${inner}</button>`
+          <button class="btn" data-style=${style} @click=${this._onInlineFab}>${inner}</button>`
       }
-      ${(this.btnSubtext || this._resolvedTheme.widget.helperText)
+      ${style !== 'icon' && (this.btnSubtext || this._resolvedTheme.widget.helperText)
         ? html`<p class="btn-subtext">${this.btnSubtext || this._resolvedTheme.widget.helperText}</p>`
         : ''}
     `;
@@ -2301,24 +2357,33 @@ export class LwAiSearch extends LitElement {
   }
 
   _renderFab() {
+    const style  = this._launcherStyle;
+    const helper = this._resolvedTheme.widget.helperText;
+    // In "icon" mode the helper text is not rendered on the launcher at all.
+    const inner  = html`${LwAiSearch.searchIcon}${
+      style === 'icon-text' && helper
+        ? html`<span class="fab-label">${helper}</span>`
+        : ''}`;
     return html`
       ${this.href
         ? html`
           <a class="fab"
+             data-style=${style}
              href=${this.href}
              target=${this.target || '_self'}
              rel=${this.target === '_blank' ? 'noreferrer noopener' : ''}
              @click=${this._onFab}
              aria-label=${this.label}
              aria-expanded=${this.open ? 'true' : 'false'}>
-            ${LwAiSearch.searchIcon}
+            ${inner}
           </a>`
         : html`
           <button class="fab"
+                  data-style=${style}
                   @click=${this._onFab}
                   aria-label=${this.label}
                   aria-expanded=${this.open ? 'true' : 'false'}>
-            ${LwAiSearch.searchIcon}
+            ${inner}
           </button>`
       }
     `;
