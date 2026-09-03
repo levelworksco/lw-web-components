@@ -410,6 +410,13 @@ export class LwAiSearch extends LitElement {
   // The panel holds four questions at most — any beyond that are ignored.
   static maxQuestions = 4;
 
+  /**
+   * Chips shown on the search page, where the backend list lands. The
+   * cloud wraps and the modal scrolls, so a long list stays contained.
+   * The hover panel keeps the tighter maxQuestions.
+   */
+  static maxSearchQuestions = 40;
+
   static properties = {
     // search API config — same attribute names as <lw-ai-search>
     searchBase:  { type: String, attribute: 'search-base'  },
@@ -909,55 +916,69 @@ export class LwAiSearch extends LitElement {
     .clear-btn svg { width: 16px; height: 16px; opacity: 0.55; }
     .clear-btn.is-hidden { visibility: hidden; pointer-events: none; }
 
-    /* ── Question cards — built from the questions attribute ── */
-    .question-cards {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      margin-top: 44px;
-      flex-wrap: wrap;
+    /* ── Suggested queries — chips built from the questions attribute ──
+       The row wraps inside the hero's 960px, so however many questions
+       the backend returns, the cloud stays inside the modal instead of
+       running off both edges. */
+    .suggested {
+      margin-top: 40px;
     }
 
-    .question-card {
+    .suggested-label {
+      margin: 0 0 14px;
+      font-family: var(--lw-ai-subtitle-font, 'Inter', sans-serif);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--lw-ai-subtitle-color, #6b7280);
+    }
+
+    .suggested-chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    .suggested-chip {
       appearance: none;
-      border: none;
-      width: 200px;
-      min-height: 104px;
-      padding: 15px 16px;
-      /* Search Page › Card drives these cards; Widget › Questions styles
+      /* Search Page › Card drives the chips; Widget › Questions styles
          the hover-panel pills instead. Card has no font setting of its
          own, so the Questions font still applies to the text. */
-      border-radius: var(--lw-ai-card-radius, var(--lw-ai-corner-radius, 10px));
-      /* No accent link here: these cards follow Search Page › Card, so
-         with no card surface configured they use this neutral default
-         rather than the widget accent. */
-      background: var(--lw-ai-card-bg, #dddddd);
-      color: var(--lw-ai-card-color, #000000);
+      border: 1px solid var(--lw-ai-card-border, rgba(17, 17, 17, 0.08));
+      border-radius: var(--lw-ai-card-radius, var(--lw-ai-corner-radius, 999px));
+      /* No accent link here: the chips follow Search Page › Card, so with
+         no card surface configured they use this neutral default rather
+         than the widget accent. */
+      background: var(--lw-ai-card-bg, #ffffff);
+      color: var(--lw-ai-card-color, #1f2937);
+      /* A long question wraps inside its own chip rather than stretching
+         the row past the container. */
+      max-width: min(100%, 420px);
+      padding: 9px 16px;
       font: inherit;
       font-family: var(--lw-ai-question-font, 'Inter', sans-serif);
-      font-size: 13px;
-      line-height: 1.45;
-      text-align: left;
+      font-size: 13.5px;
+      line-height: 1.4;
+      text-align: center;
       cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 16px;
       transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
     }
 
-    .question-card:hover {
-      /* Darken the themed card colour rather than replacing it. */
-      background: var(--lw-ai-card-bg, #dddddd);
+    .suggested-chip:hover {
+      /* Darken the themed chip colour rather than replacing it. */
+      background: var(--lw-ai-card-bg, #ffffff);
       filter: brightness(0.97);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.10);
     }
-    .question-card:active { transform: scale(0.98); }
-    .question-card:focus-visible {
-      outline: 2px solid #1a1a1a;
+    .suggested-chip:active { transform: scale(0.98); }
+    .suggested-chip:focus-visible {
+      outline: 2px solid var(--lw-ai-card-color, #1a1a1a);
       outline-offset: 2px;
     }
-    .question-card svg { width: 16px; height: 16px; flex-shrink: 0; }
 
     /* ── Powered by ── */
     /* The badge is a single supplied lockup — wordmark and logo are
@@ -1058,14 +1079,15 @@ export class LwAiSearch extends LitElement {
 
     /* ── Modal responsive ── */
     @media (max-width: 768px) {
-      .question-card { width: calc(50% - 10px); min-height: 88px; }
+      .suggested-chips { max-width: 100%; }
       .modal-results { width: 100%; }
     }
 
     @media (max-width: 560px) {
       #ai-search-modal { display: block; }
-      .question-cards { gap: 12px; margin-top: 32px; }
-      .question-card { width: calc(50% - 6px); min-height: 84px; font-size: 12.5px; }
+      .suggested { margin-top: 30px; }
+      .suggested-chips { gap: 8px; }
+      .suggested-chip { padding: 8px 13px; font-size: 12.5px; }
       .modal-results { width: 100%; }
     }
 
@@ -1079,8 +1101,9 @@ export class LwAiSearch extends LitElement {
       .hero { padding-top: 0; }
       .hero h1 { font-size: 26px; }
       .hero > p { margin-bottom: 18px; }
-      .question-cards { margin-top: 20px; gap: 12px; }
-      .question-card { width: calc(25% - 12px); min-height: 0; padding: 12px; }
+      .suggested { margin-top: 18px; }
+      .suggested-chips { gap: 8px; }
+      .suggested-chip { padding: 7px 13px; font-size: 12.5px; }
       .search-input-wrapper { max-width: 700px; }
       .modal-results { max-width: 1000px; }
       #ai-search-close { top: 10px; right: 14px; font-size: 32px; }
@@ -2134,7 +2157,7 @@ export class LwAiSearch extends LitElement {
   }
 
   _renderModal() {
-    const questions = this._suggestedQuestions.slice(0, LwAiSearch.maxQuestions);
+    const questions = this._suggestedQuestions.slice(0, LwAiSearch.maxSearchQuestions);
     return html`
       <div id="ai-search-overlay"
            class=${this.modalOpen ? 'open' : ''}
@@ -2193,12 +2216,13 @@ export class LwAiSearch extends LitElement {
             </div>
 
             ${questions.length ? html`
-              <div class="question-cards ${this._showFeatures ? '' : 'is-hidden'}">
-                ${questions.map((q, i) => html`
-                  <button class="question-card" @click=${() => this._onCardClick(q, i)}>
-                    ${LwAiSearch.aiIcon}
-                    <span>${q}</span>
-                  </button>`)}
+              <div class="suggested ${this._showFeatures ? '' : 'is-hidden'}">
+                <p class="suggested-label">Suggested Queries</p>
+                <div class="suggested-chips">
+                  ${questions.map((q, i) => html`
+                    <button class="suggested-chip"
+                            @click=${() => this._onCardClick(q, i)}>${q}</button>`)}
+                </div>
               </div>` : ''}
           </div>
 
