@@ -1287,8 +1287,13 @@ export class LwAiSearch extends LitElement {
       `--pl-category-bg: ${t.results.chip.backgroundColor}`,
       `--pl-category-color: ${t.results.chip.color}`,
       // Card Background is deliberately NOT forwarded to the result rows:
-      // it styles the search-page question cards only. Result rows keep
-      // their own flat/transparent surface from <lw-blog-list-item>.
+      // it styles the search-page question cards only. The result cards
+      // follow the *page* background instead, so a dark page does not
+      // leave white grid cards floating on it. A transparent page colour
+      // means "unset", and the child keeps its own default surface.
+      ...(isTransparentColor(t.page.backgroundColor)
+        ? []
+        : [`--pl-card-background: ${t.page.backgroundColor}`]),
       `--pl-card-radius: ${t.card.cornerRadius}`,
       `--lw-ai-results-title-font: ${resultsTitleFont}`,
       `--lw-ai-results-title-color: ${t.results.blogTitle.color}`,
