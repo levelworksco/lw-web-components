@@ -21,6 +21,7 @@ const DEFAULT_AI_THEME = {
     backgroundColor: '#F4F4F6',
   },
   cornerRadius: 12,
+  suggestedQuestionsStyle: 'card',
   suggestedQuestions: {
     items: [
       'How does Discover AI work?',
@@ -95,6 +96,7 @@ const BACKEND_THEME_MAP = {
   ButtonOutlineColor:            ['button', 'outlineColor'],
   ButtonOutlineThickness:        ['button', 'outlineThickness'],
   ButtonCornerRadius:            ['cornerRadius'],
+  SuggestedQuestionsStyle:       ['suggestedQuestionsStyle'],
   QuestionsFontFamily:           ['questions', 'fontFamily'],
   QuestionsTextColor:            ['questions', 'textColor'],
   QuestionsBackgroundColor:      ['questions', 'backgroundColor'],
@@ -410,12 +412,9 @@ export class LwAiSearch extends LitElement {
   // The panel holds four questions at most — any beyond that are ignored.
   static maxQuestions = 4;
 
-  /**
-   * Chips shown on the search page, where the backend list lands. The
-   * cloud wraps and the modal scrolls, so a long list stays contained.
-   * The hover panel keeps the tighter maxQuestions.
-   */
-  static maxSearchQuestions = 40;
+  // Search-page cards use the first four questions; chips use the first ten.
+  static maxCardQuestions = 4;
+  static maxChipQuestions = 10;
 
   static properties = {
     // search API config — same attribute names as <lw-ai-search>
@@ -924,6 +923,52 @@ export class LwAiSearch extends LitElement {
       margin-top: 40px;
     }
 
+    .suggested-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .suggested-card {
+      appearance: none;
+      min-width: 0;
+      min-height: 104px;
+      padding: 16px;
+      border: none;
+      border-radius: var(--lw-ai-card-radius, var(--lw-ai-corner-radius, 8px));
+      background: var(--lw-ai-card-bg, #ffffff);
+      color: var(--lw-ai-card-color, #1a1a1a);
+      font: inherit;
+      font-family: var(--lw-ai-question-font, 'Inter', sans-serif);
+      font-size: 13.5px;
+      line-height: 1.45;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+
+    .suggested-card:hover {
+      background: var(--lw-ai-card-bg, #ffffff);
+      filter: brightness(0.97);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+    }
+    .suggested-card:active { transform: scale(0.98); }
+    .suggested-card:focus-visible {
+      outline: 2px solid var(--lw-ai-card-color, #1a1a1a);
+      outline-offset: 2px;
+    }
+    .suggested-card svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
     .suggested-label {
       margin: 0 0 14px;
       font-family: var(--lw-ai-subtitle-font, 'Inter', sans-serif);
@@ -1079,6 +1124,7 @@ export class LwAiSearch extends LitElement {
 
     /* ── Modal responsive ── */
     @media (max-width: 768px) {
+      .suggested-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
       .suggested-chips { max-width: 100%; }
       .modal-results { width: 100%; }
     }
@@ -1086,6 +1132,7 @@ export class LwAiSearch extends LitElement {
     @media (max-width: 560px) {
       #ai-search-modal { display: block; }
       .suggested { margin-top: 30px; }
+      .suggested-card { min-height: 88px; padding: 14px; font-size: 12.5px; }
       .suggested-chips { gap: 8px; }
       .suggested-chip { padding: 8px 13px; font-size: 12.5px; }
       .modal-results { width: 100%; }
@@ -1102,6 +1149,8 @@ export class LwAiSearch extends LitElement {
       .hero h1 { font-size: 26px; }
       .hero > p { margin-bottom: 18px; }
       .suggested { margin-top: 18px; }
+      .suggested-cards { gap: 8px; }
+      .suggested-card { min-height: 78px; padding: 10px 12px; gap: 10px; }
       .suggested-chips { gap: 8px; }
       .suggested-chip { padding: 7px 13px; font-size: 12.5px; }
       .search-input-wrapper { max-width: 700px; }
@@ -1261,6 +1310,12 @@ export class LwAiSearch extends LitElement {
     // for when none are configured or the request fails.
     if (this._backendQuestions?.length) return this._backendQuestions;
     return this._resolvedTheme.suggestedQuestions.items || [];
+  }
+
+  get _suggestedQuestionsStyle() {
+    return String(this._resolvedTheme.suggestedQuestionsStyle).trim().toLowerCase() === 'chips'
+      ? 'chips'
+      : 'card';
   }
 
   get _themeStyle() {
@@ -2156,8 +2211,41 @@ export class LwAiSearch extends LitElement {
     return `--lw-ask-modal-top: ${/^-?[\d.]+$/.test(v) ? v + 'px' : v}`;
   }
 
+  _renderModalSuggestions(questions, style) {
+    if (!questions.length) return '';
+    const hiddenClass = this._showFeatures ? '' : 'is-hidden';
+
+    if (style === 'chips') {
+      return html`
+        <div class="suggested suggested--chips ${hiddenClass}">
+          <p class="suggested-label">Suggested Queries</p>
+          <div class="suggested-chips">
+            ${questions.map((question, index) => html`
+              <button class="suggested-chip"
+                      @click=${() => this._onCardClick(question, index)}>${question}</button>`)}
+          </div>
+        </div>`;
+    }
+
+    return html`
+      <div class="suggested suggested--cards ${hiddenClass}">
+        <div class="suggested-cards">
+          ${questions.map((question, index) => html`
+            <button class="suggested-card"
+                    @click=${() => this._onCardClick(question, index)}>
+              ${LwAiSearch.sparkleIcon}
+              <span>${question}</span>
+            </button>`)}
+        </div>
+      </div>`;
+  }
+
   _renderModal() {
-    const questions = this._suggestedQuestions.slice(0, LwAiSearch.maxSearchQuestions);
+    const suggestedStyle = this._suggestedQuestionsStyle;
+    const questionLimit = suggestedStyle === 'chips'
+      ? LwAiSearch.maxChipQuestions
+      : LwAiSearch.maxCardQuestions;
+    const questions = this._suggestedQuestions.slice(0, questionLimit);
     return html`
       <div id="ai-search-overlay"
            class=${this.modalOpen ? 'open' : ''}
@@ -2215,15 +2303,7 @@ export class LwAiSearch extends LitElement {
               </div>
             </div>
 
-            ${questions.length ? html`
-              <div class="suggested ${this._showFeatures ? '' : 'is-hidden'}">
-                <p class="suggested-label">Suggested Queries</p>
-                <div class="suggested-chips">
-                  ${questions.map((q, i) => html`
-                    <button class="suggested-chip"
-                            @click=${() => this._onCardClick(q, i)}>${q}</button>`)}
-                </div>
-              </div>` : ''}
+            ${this._renderModalSuggestions(questions, suggestedStyle)}
           </div>
 
           <div class="modal-results ${this._showResults && this._resultsReady ? '' : 'is-hidden'}">
