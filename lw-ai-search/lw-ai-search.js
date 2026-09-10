@@ -1914,7 +1914,10 @@ export class LwAiSearch extends LitElement {
     this._barSpaceObserver?.disconnect();
     this._barSpaceObserver = null;
     if (this._barSpace != null) {
-      document.body.style.paddingBottom = this._barSpace;
+      document.body.style.removeProperty('padding-bottom');
+      if (this._barSpace[0]) {
+        document.body.style.setProperty('padding-bottom', this._barSpace[0], this._barSpace[1]);
+      }
       this._barSpace = null;
     }
     clearTimeout(this._debounceTimer);
@@ -2340,7 +2343,10 @@ export class LwAiSearch extends LitElement {
     const wrap = this.shadowRoot?.querySelector('.bar-wrap');
     if (!this._isBar || this._inline || !wrap) {
       if (this._barSpace != null) {
-        body.style.paddingBottom = this._barSpace;
+        body.style.removeProperty('padding-bottom');
+        if (this._barSpace[0]) {
+          body.style.setProperty('padding-bottom', this._barSpace[0], this._barSpace[1]);
+        }
         this._barSpace = null;
       }
       this._barSpaceObserver?.disconnect();
@@ -2358,10 +2364,21 @@ export class LwAiSearch extends LitElement {
                    : (visible(tab) ? tab.getBoundingClientRect().height : 0));
     if (!height) return;
 
-    // Remember what the site had before the first write, never after.
-    if (this._barSpace == null) this._barSpace = body.style.paddingBottom;
+    // Remember what the site had before the first write, never after --
+    // value and priority both, so a theme's own !important survives.
+    if (this._barSpace == null) {
+      this._barSpace = [
+        body.style.getPropertyValue('padding-bottom'),
+        body.style.getPropertyPriority('padding-bottom'),
+      ];
+    }
+    // Written as !important: an inline style loses to a stylesheet rule
+    // that carries !important, and themes do write those on body.
     const next = `${height}px`;
-    if (body.style.paddingBottom !== next) body.style.paddingBottom = next;
+    if (body.style.getPropertyValue('padding-bottom') !== next
+        || body.style.getPropertyPriority('padding-bottom') !== 'important') {
+      body.style.setProperty('padding-bottom', next, 'important');
+    }
 
     if (!this._barSpaceObserver && window.ResizeObserver) {
       this._barSpaceObserver = new ResizeObserver(() => this._syncBarSpace());
