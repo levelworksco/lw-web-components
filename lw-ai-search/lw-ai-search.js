@@ -466,9 +466,11 @@ export class LwAiSearch extends LitElement {
   // The fixed state shows this many; the scrolling one shows them all.
   static barFixedQuestions = 4;
 
-  // Search-page cards use the first four questions; chips use the first ten.
+  // Search-page cards are large, so only the first four fit the row. Chips
+  // wrap freely, so they take everything the backend sends, up to 40 --
+  // anything beyond that stops reading as a cloud and buries the results.
   static maxCardQuestions = 4;
-  static maxChipQuestions = 10;
+  static maxChipQuestions = 40;
 
   static properties = {
     // search API config — same attribute names as <lw-ai-search>
