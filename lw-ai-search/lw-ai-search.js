@@ -838,17 +838,24 @@ export class LwAiSearch extends LitElement {
       background: none;
       display: inline-flex;
       padding: 4px;
-      color: var(--lw-ask-bar-mode-color, rgba(17, 17, 17, 0.35));
+      /* Widget › Icon Colour, the same setting that paints the floating
+         button's glyph. The resting icons are dimmed rather than given a
+         colour of their own, so the active one still reads as selected
+         once both come from the theme. */
+      color: var(--lw-ask-bar-mode-color,
+             var(--lw-ai-widget-icon-color, rgba(17, 17, 17, 0.9)));
+      opacity: var(--lw-ask-bar-mode-opacity, 0.45);
       cursor: pointer;
-      transition: color 0.15s;
+      transition: color 0.15s, opacity 0.15s;
     }
     .bar-mode svg { width: 18px; height: 18px; }
-    .bar-mode:hover { color: var(--lw-ask-bar-mode-color-hover, rgba(17, 17, 17, 0.6)); }
+    .bar-mode:hover { opacity: var(--lw-ask-bar-mode-opacity-hover, 0.75); }
 
     /* The active state takes the button colour, so the bar's controls
        follow Widget › Button like the CTA beside them. */
     .bar-mode[aria-pressed="true"] {
       color: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
+      opacity: 1;
     }
     .bar-mode:focus-visible {
       outline: 2px solid currentColor;
