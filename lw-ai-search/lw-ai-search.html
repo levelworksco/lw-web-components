@@ -100,6 +100,7 @@
        In production use search-base="https://discoverai.levelworks.co". -->
   <lw-ai-search
     id="launcher"
+    cta-label="Ask Blog"
     search-base=""
     search-key="pk_live_BZfN2SpXzwOh5LDvQmoDDjCkBHnf3ghscE4_6bwddAE"
     search-index="all"
@@ -114,6 +115,13 @@
     const say = msg => { log.textContent = msg; };
 
     const launcher = document.getElementById('launcher');
+
+    // Launcher position for this demo. This is the same theme layer the
+    // widget styling config lands in, so it exercises exactly the path
+    // widgetPosition: "bar" takes from the API — no btn-type on the tag,
+    // which would pin the mode and lock the backend out.
+    // Set 'floating' (or delete this) for the corner button.
+    launcher.theme = { widget: { position: 'bar' } };
 
     // Clicking a question opens the <lw-ai-search> modal on this page
     // and runs that question straight away.

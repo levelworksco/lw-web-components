@@ -5,6 +5,11 @@ import '../lw-blog-list/lw-blog-list.js';
 const DEFAULT_AI_THEME = {
   widget: {
     style: 'icon-text',
+    // 'floating' pins the launcher to a corner; 'bar' spans the full width
+    // of the viewport, anchored to the bottom. See _resolvedPosition and
+    // the btn-type="bar" styles below — btn-type set directly on the tag
+    // wins over this, same precedence widget.style already follows.
+    position: 'floating',
     helperText: 'Ask me anything',
     backgroundColor: '#ffffff',
     iconColor: '#000000',
@@ -22,6 +27,9 @@ const DEFAULT_AI_THEME = {
   },
   cornerRadius: 12,
   suggestedQuestionsStyle: 'card',
+  // 'fullpage' covers the viewport (the current behaviour); 'panel' slides
+  // in from the right and squeezes the page into what is left.
+  searchDisplayMode: 'fullpage',
   suggestedQuestions: {
     items: [
       'How does Discover AI work?',
@@ -88,6 +96,7 @@ function mergeTheme(base, override) {
 // Accept both ASP.NET's usual camelCase JSON and the DTO's PascalCase names.
 const BACKEND_THEME_MAP = {
   WidgetStyle:                   ['widget', 'style'],
+  WidgetPosition:                ['widget', 'position'],
   HelperText:                    ['widget', 'helperText'],
   WidgetBackgroundColor:         ['widget', 'backgroundColor'],
   WidgetIconColor:               ['widget', 'iconColor'],
@@ -97,6 +106,7 @@ const BACKEND_THEME_MAP = {
   ButtonOutlineThickness:        ['button', 'outlineThickness'],
   ButtonCornerRadius:            ['cornerRadius'],
   SuggestedQuestionsStyle:       ['suggestedQuestionsStyle'],
+  SearchDisplayMode:             ['searchDisplayMode'],
   QuestionsFontFamily:           ['questions', 'fontFamily'],
   QuestionsTextColor:            ['questions', 'textColor'],
   QuestionsBackgroundColor:      ['questions', 'backgroundColor'],
@@ -141,6 +151,35 @@ const DEFAULT_WIDGET_STYLE = 'icon-text';
 function normalizeWidgetStyle(value) {
   const v = String(value ?? '').trim().toLowerCase();
   return WIDGET_STYLES.has(v) ? v : DEFAULT_WIDGET_STYLE;
+}
+
+/**
+ * Widget Position is a closed set for the same reason Widget Style is: a
+ * freshly created config row (or one saved before this field existed) has
+ * no value at all, and anything unrecognised must resolve to the current
+ * default rather than reach a CSS attribute selector as garbage.
+ */
+/**
+ * Where the search opens: over the whole viewport, or in a right-hand
+ * panel that pushes the page aside. Another closed set, same handling as
+ * widget style and position — anything unrecognised is the full page.
+ */
+const SEARCH_DISPLAY_MODES = new Set(['fullpage', 'panel']);
+const DEFAULT_SEARCH_DISPLAY = 'fullpage';
+
+function normalizeSearchDisplay(value) {
+  const v = String(value ?? '').trim().toLowerCase().replace(/[s_]+/g, '-');
+  if (v === 'right-panel' || v === 'side-panel' || v === 'sidepanel') return 'panel';
+  if (v === 'full-page') return 'fullpage';
+  return SEARCH_DISPLAY_MODES.has(v) ? v : DEFAULT_SEARCH_DISPLAY;
+}
+
+const WIDGET_POSITIONS = new Set(['floating', 'bar']);
+const DEFAULT_WIDGET_POSITION = 'floating';
+
+function normalizeWidgetPosition(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return WIDGET_POSITIONS.has(v) ? v : DEFAULT_WIDGET_POSITION;
 }
 
 function isUnsetThemeValue(value) {
@@ -348,7 +387,12 @@ import '../lw-blog-overview/lw-blog-overview.js';
 //   trigger     (String)  "hover" (default) | "click"
 //   btn-type    (String)  "float" (default) pins the circular button to
 //                         the bottom-right of the viewport and expands
-//                         the question panel on hover. "normal" renders
+//                         the question panel on hover. "bar" pins the
+//                         same button (and the same question panel,
+//                         same hover/click/href behaviour — nothing
+//                         about *what* it does changes) to a bar
+//                         spanning the full width of the viewport
+//                         instead of a corner. "normal" renders
 //                         a plain labelled button in normal document
 //                         flow — no hover, no question panel; pressing
 //                         it goes straight to href.
@@ -412,6 +456,16 @@ export class LwAiSearch extends LitElement {
   // The panel holds four questions at most — any beyond that are ignored.
   static maxQuestions = 4;
 
+  // The bar lays its questions out in one scrollable row, so it seats
+  // more of them than the stacked hover panel.
+  static maxBarQuestions = 10;
+
+  // The three bar states, in the order their icons appear.
+  static barModes = ['search', 'questions', 'scroll'];
+
+  // The fixed state shows this many; the scrolling one shows them all.
+  static barFixedQuestions = 4;
+
   // Search-page cards use the first four questions; chips use the first ten.
   static maxCardQuestions = 4;
   static maxChipQuestions = 10;
@@ -440,6 +494,7 @@ export class LwAiSearch extends LitElement {
     btnType:    { type: String,  attribute: 'btn-type', reflect: true },
     btnLabel:   { type: String,  attribute: 'btn-label'   },
     widgetStyle:{ type: String,  attribute: 'widget-style' },
+    searchDisplay:{ type: String, attribute: 'search-display' },
     btnSubtext: { type: String,  attribute: 'btn-subtext' },
     label:      { type: String                           },
     open:       { type: Boolean, reflect: true           },
@@ -464,6 +519,10 @@ export class LwAiSearch extends LitElement {
     _summaryHits:  { state: true },
     _backendTheme: { state: true },
     _backendQuestions: { state: true },
+    _barMode:      { state: true },
+    _barMinimized: { state: true },
+    barMode:       { type: String, attribute: 'bar-mode' },
+    barPlaceholder:{ type: String, attribute: 'bar-placeholder' },
   };
 
   // Page size for each search request.
@@ -472,7 +531,9 @@ export class LwAiSearch extends LitElement {
   static styles = css`
     :host {
       position: fixed;
-      right:  var(--lw-ask-right, 24px);
+      /* --lw-ask-panel-inset is set while the right panel is open, so this
+         element -- fixed like the site's own bars -- is pushed aside too. */
+      right:  calc(var(--lw-ask-right, 24px) + var(--lw-ask-panel-inset, 0px));
       bottom: var(--lw-ask-bottom, 24px);
       z-index: var(--lw-ask-z, 900);
       display: flex;
@@ -657,6 +718,304 @@ export class LwAiSearch extends LitElement {
       color: inherit;
     }
 
+    /* ── Bar mode: btn-type="bar" ──
+       widget.position = "bar" swaps the corner launcher for a strip
+       across the bottom of the viewport: the search icon, the suggested
+       questions laid out in a row, and the CTA at the far end. Nothing
+       needs to be revealed — every question is already on screen — so
+       this mode renders its own markup instead of the .fab/.panel pair,
+       and neither hover nor the two-tap flow applies to it. */
+    :host([btn-type="bar"]) {
+      left: 0;
+      right: var(--lw-ask-panel-inset, 0px);
+      bottom: 0;
+      width: auto;
+    }
+
+    /* The bar and its minimize tab share a wrapper so the tab can sit
+       above the bar's top edge and stay put once the bar is hidden. */
+    .bar-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .bar-toggle {
+      position: absolute;
+      right: var(--lw-ask-bar-toggle-right, 28px);
+      bottom: 100%;
+      appearance: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px 5px;
+      border-radius: 10px 10px 0 0;
+      background: var(--lw-ai-widget-bg, #ffffff);
+      color: var(--lw-ask-bar-toggle-color, rgba(17, 17, 17, 0.45));
+      cursor: pointer;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.10);
+      transition: color 0.15s;
+    }
+    .bar-toggle:hover { color: var(--lw-ask-bar-toggle-color-hover, rgba(17, 17, 17, 0.75)); }
+    .bar-toggle svg { width: 20px; height: 20px; display: block; }
+    .bar-toggle:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: -2px;
+    }
+
+    /* Minimized: the strip itself goes, the tab stays as the way back. */
+    .bar-wrap.is-minimized .bar { display: none; }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      min-height: var(--lw-ask-bar-height, 64px);
+      padding: 0 16px;
+      box-sizing: border-box;
+      /* Widget settings paint the strip, the same way they paint the
+         floating button; Questions settings paint the chips inside it
+         and Button settings the CTA, both by way of .pill / .cta. */
+      background: var(--lw-ai-widget-bg, #ffffff);
+      color: var(--lw-ai-widget-icon-color, #000000);
+      border-radius: var(--lw-ask-bar-radius, 14px 14px 0 0);
+      /* the fab's shadow points down, for a circle floating above the
+         page — a bar flush with the bottom edge wants it upward */
+      box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.16);
+    }
+
+    .bar-icon {
+      appearance: none;
+      border: none;
+      background: none;
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .bar-icon .fab-icon {
+      width:  var(--lw-ask-bar-icon-size, 22px);
+      height: var(--lw-ask-bar-icon-size, 22px);
+    }
+    .bar-icon:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    .bar-helper {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .bar-divider {
+      flex: none;
+      width: 1px;
+      align-self: stretch;
+      margin: 14px 0;
+      background: var(--lw-ask-bar-divider, rgba(17, 17, 17, 0.12));
+    }
+
+    /* ── The three bar states ──
+       The icon group on the left switches between them: a search field,
+       the first four questions, or every question scrolling past. */
+    .bar-modes {
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .bar-mode {
+      appearance: none;
+      border: none;
+      background: none;
+      display: inline-flex;
+      padding: 4px;
+      color: var(--lw-ask-bar-mode-color, rgba(17, 17, 17, 0.35));
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .bar-mode svg { width: 18px; height: 18px; }
+    .bar-mode:hover { color: var(--lw-ask-bar-mode-color-hover, rgba(17, 17, 17, 0.6)); }
+
+    /* The active state takes the button colour, so the bar's controls
+       follow Widget › Button like the CTA beside them. */
+    .bar-mode[aria-pressed="true"] {
+      color: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
+    }
+    .bar-mode:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+      border-radius: 5px;
+    }
+
+    /* Whatever the active state renders sits here, between the icons and
+       the CTA, and is the only part that flexes. */
+    .bar-body {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px 0;
+    }
+
+    /* state 1: search */
+    .bar-form {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      max-width: var(--lw-ask-bar-search-width, 420px);
+      /* A flex item's automatic minimum is its content width, which for a
+         field with a long placeholder is wider than a phone can spare --
+         the field would then push out over the CTA instead of shrinking. */
+      min-width: 0;
+      height: 34px;
+      padding: 0 14px;
+      border: 1px solid var(--lw-ask-bar-divider, rgba(17, 17, 17, 0.12));
+      border-radius: 999px;
+      background: var(--lw-ask-bar-search-bg, #ffffff);
+    }
+    .bar-form:focus-within {
+      border-color: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
+    }
+    .bar-form svg { width: 15px; height: 15px; flex: none; opacity: 0.5; }
+    .bar-form input {
+      flex: 1;
+      min-width: 0;
+      /* the placeholder trails off rather than being cut mid-word */
+      text-overflow: ellipsis;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--lw-ai-question-font, 'Inter', sans-serif);
+      font-size: 12.5px;
+      color: var(--lw-ai-search-color, #1a1a1a);
+    }
+    .bar-form input::placeholder { color: var(--lw-ai-search-placeholder, #9aa1a8); }
+
+    /* state 2: the first four questions, sitting still */
+    .bar-fixed {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* state 3: every question, scrolling past continuously. The track
+       holds the list twice so the reset at -50% is seamless. */
+    .bar-marquee {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px,
+                          #000 calc(100% - 40px), transparent);
+              mask-image: linear-gradient(90deg, transparent, #000 40px,
+                          #000 calc(100% - 40px), transparent);
+    }
+    .bar-track {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: max-content;
+      animation: lw-bar-scroll var(--lw-ask-bar-scroll-duration, 42s) linear infinite;
+    }
+    .bar-marquee:hover .bar-track { animation-play-state: paused; }
+    @keyframes lw-bar-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* .pill is written for the floating panel, where it animates in from
+       hidden and carries a drop shadow. In the bar it is simply always
+       there, sitting on the bar's own surface. */
+    .bar .pill {
+      flex: none;
+      opacity: 1;
+      transform: none;
+      transition-delay: 0ms;
+      box-shadow: none;
+      font-size: 12px;
+      padding: 7px 14px;
+    }
+
+    .bar > .cta { flex: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bar-track { animation: none; }
+      .bar-marquee { overflow-x: auto; }
+    }
+
+    @media (max-width: 640px) {
+      .bar { gap: 10px; padding: 0 10px; }
+      .bar-helper,
+      .bar-divider { display: none; }
+    }
+
+    /* ── Phones ──
+       There is no room to seat a row of questions beside the CTA, so the
+       icons stack into a narrow column, a single question takes the space
+       between them and the CTA, and it wraps onto a second line rather
+       than being clipped. */
+    @media (max-width: 560px) {
+      .bar {
+        gap: 8px;
+        padding: 8px 10px;
+        min-height: 0;
+        flex-wrap: nowrap;
+        border-radius: var(--lw-ask-bar-radius-mobile, 14px 14px 0 0);
+      }
+
+      .bar-modes {
+        flex-direction: column;
+        gap: 3px;
+        /* the column is taller than one row of icons, so the bar has to be
+           free to grow with it rather than centre-overflow its own box */
+        align-self: center;
+      }
+      .bar-mode { padding: 2px; }
+      .bar-mode svg { width: 14px; height: 14px; }
+
+      .bar-body { padding: 0; }
+
+      /* Only the first question fits; the rest stay in the DOM for the
+         scrolling state, which still shows them all. */
+      .bar-fixed .pill:nth-child(n + 2) { display: none; }
+
+      .bar-fixed .pill,
+      .bar-track .pill {
+        /* two lines, centred, instead of one clipped line */
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        max-width: 100%;
+        padding: 6px 12px;
+        font-size: 11.5px;
+        line-height: 1.25;
+      }
+      .bar-fixed { flex: 1 1 auto; }
+
+      .bar > .cta {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .bar > .cta svg { width: 13px; height: 13px; }
+
+      .bar-toggle { right: 14px; padding: 5px 9px 4px; }
+      .bar-toggle svg { width: 17px; height: 17px; }
+    }
+
     /* ── Inline mode: btn-type="normal" ──
        A plain labelled button in normal document flow. No hover panel
        and no question pills — pressing it goes straight to href. */
@@ -726,6 +1085,17 @@ export class LwAiSearch extends LitElement {
        would trap the overlay underneath the page. Lift it while open. */
     :host([modal-open]) { z-index: 2147483000; }
 
+    /* While the search is up, the launcher steps out of the way: the bar
+       would otherwise sit alongside the right panel competing with it, and
+       under the full-page modal it is not visible anyway. The inline
+       button (btn-type="normal") is left alone — it lives in the page's
+       own flow, and hiding it would collapse the space it occupies.
+       Nothing is remembered here, so closing the panel brings the
+       launcher straight back, minimized or not, as it was. */
+    :host([modal-open]) .bar-wrap,
+    :host([modal-open]) .fab,
+    :host([modal-open]) .panel { display: none; }
+
     /* Scoped reset — deliberately not a bare * so the button and pills
        above keep their own box model. :where() keeps the margin reset at
        zero specificity so the rules below can still set their spacing. */
@@ -754,6 +1124,69 @@ export class LwAiSearch extends LitElement {
     }
 
     #ai-search-overlay.open { display: flex; }
+
+    /* ── Right panel ──
+       searchDisplayMode = "panel". The overlay stops covering the viewport
+       and becomes a column down the right edge; _pushPage squeezes the host
+       page into what is left, so the two sit side by side rather than one
+       over the other. */
+    #ai-search-overlay.as-panel {
+      left: auto;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: var(--lw-ask-panel-width, 400px);
+      max-width: 100vw;
+      height: 100%;
+      background: none;
+      overflow: hidden;
+    }
+
+    #ai-search-overlay.as-panel #ai-search-modal {
+      width: 100%;
+      height: 100%;
+      margin-top: 0;
+      display: block;
+      padding: 56px 0 32px;
+      border-left: 1px solid rgba(20, 20, 26, 0.10);
+      box-shadow: -8px 0 30px rgba(20, 20, 26, 0.10);
+      /* slides in from the edge rather than appearing in place */
+      transform: translateX(101%);
+      transition: transform 0.28s ease;
+    }
+    #ai-search-overlay.as-panel.open #ai-search-modal { transform: translateX(0); }
+
+    /* Everything inside was laid out for a 960px hero; at panel width it
+       needs the space back. */
+    #ai-search-overlay.as-panel .hero { padding: 18px 16px 8px; }
+    #ai-search-overlay.as-panel .hero h1 { font-size: 20px; }
+    #ai-search-overlay.as-panel .hero > p { margin-bottom: 18px; font-size: 12.5px; }
+    #ai-search-overlay.as-panel .search-input-wrapper { max-width: 100%; height: 40px; }
+    #ai-search-overlay.as-panel .client-logo { top: 16px; width: 130px; height: 30px; }
+    #ai-search-overlay.as-panel #ai-search-close { top: 6px; right: 10px; font-size: 30px; }
+    #ai-search-overlay.as-panel .modal-results { max-width: 100%; padding: 0 16px; }
+    #ai-search-overlay.as-panel .suggested { margin-top: 22px; }
+    #ai-search-overlay.as-panel .suggested-cards { grid-template-columns: 1fr; gap: 8px; }
+    #ai-search-overlay.as-panel .suggested-card { min-height: 0; padding: 12px; }
+    #ai-search-overlay.as-panel .suggested-chips { max-width: 100%; }
+    #ai-search-overlay.as-panel .further-reading { margin: 18px 0 10px; font-size: 15px; }
+
+    /* the badge is fixed to the viewport in full-page mode, which would
+       leave it out on the squeezed page rather than inside the panel */
+    #ai-search-overlay.as-panel .powered-by {
+      position: absolute;
+      right: 16px;
+      bottom: 12px;
+    }
+    #ai-search-overlay.as-panel .powered-by svg,
+    #ai-search-overlay.as-panel .powered-by img {
+      width: var(--lw-ask-powered-width, 120px);
+    }
+
+    @media (max-width: 560px) {
+      /* no room to squeeze a phone; the panel takes the screen */
+      #ai-search-overlay.as-panel { width: 100vw; }
+    }
 
     #ai-search-modal {
       width: 100%;
@@ -1230,6 +1663,39 @@ export class LwAiSearch extends LitElement {
     </svg>
   `;
 
+  // Bar mode icons: a 2x2 grid for the fixed four, stacked rules for
+  // the full scrolling list. The magnifier reuses searchIcon.
+  static gridIcon = html`
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <rect x="2"  y="3"  width="7" height="6" rx="1.5"/>
+      <rect x="11" y="3"  width="7" height="6" rx="1.5"/>
+      <rect x="2"  y="11" width="7" height="6" rx="1.5"/>
+      <rect x="11" y="11" width="7" height="6" rx="1.5"/>
+    </svg>`;
+
+  static listIcon = html`
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
+         stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+      <line x1="3" y1="7"  x2="17" y2="7"/>
+      <line x1="3" y1="13" x2="17" y2="13"/>
+    </svg>`;
+
+  // Minimize / restore glyphs for the bar's corner tab.
+  static minimizeIcon = html`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>`;
+
+  static restoreIcon = html`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="8" y1="12" x2="16" y2="12"/>
+      <line x1="12" y1="8" x2="12" y2="16"/>
+    </svg>`;
+
   static sparkleIcon = html`
     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
       <path d="M8 1.2l1.55 4.05a1 1 0 0 0 .58.58L14.2 7.4l-4.07 1.57a1 1 0 0 0-.58.58L8 13.6l-1.55-4.05a1 1 0 0 0-.58-.58L1.8 7.4l4.07-1.57a1 1 0 0 0 .58-.58z"/>
@@ -1258,11 +1724,26 @@ export class LwAiSearch extends LitElement {
     this.ctaHref    = '';
     this.ctaTarget  = '';
     this.trigger    = 'hover';
+    // Snapshot BEFORE this constructor assigns its own default below —
+    // attributes present in the parsed HTML already exist on the element at
+    // this point (they belong to the DOM node, independent of upgrade
+    // timing), so this reliably tells apart "the integrator wrote btn-type on
+    // the tag" from "nothing was written and this constructor's own default
+    // is about to fill it in". _resolvedPosition (below) uses it to decide
+    // whether the backend theme's widget.position is allowed to take over.
+    this._btnTypeExplicit = this.hasAttribute('btn-type');
     // 'float' pins the button to the viewport corner; 'normal' lets it
     // sit inline wherever it is placed in the page.
     this.btnType    = 'float';
     this.btnLabel   = 'Search with AI';
     this.widgetStyle = '';
+    this.searchDisplay = '';
+    // Which of the three bar states is showing. bar-mode seeds it from
+    // the tag; the icon group then owns it for the rest of the session.
+    this.barMode        = '';
+    this.barPlaceholder = 'Ask a question to get instant AI answer';
+    this._barMode       = '';
+    this._barMinimized  = false;
     this.btnSubtext = '';
     this.label      = 'Ask our blog';
     this.open       = false;
@@ -1415,6 +1896,21 @@ export class LwAiSearch extends LitElement {
   updated(changedProperties) {
     if (changedProperties.has('theme')) {
       Promise.all(themeFontFamilies(this._resolvedTheme).map(loadGoogleFont));
+    }
+    // Reflects the backend-configured position onto btn-type, the attribute
+    // the styles above actually key off (:host([btn-type="bar"])) — btnType's
+    // own reflect:true then syncs it onto the DOM attribute automatically.
+    // Only when the tag never had btn-type written on it explicitly; an
+    // explicit value, including "normal", is untouched (_resolvedPosition
+    // returns it unchanged, so this is then always a no-op).
+    // Checks both _backendTheme and theme: either can carry widget.position,
+    // same layering _resolvedTheme itself merges them with.
+    if (
+      !this._btnTypeExplicit &&
+      (changedProperties.has('_backendTheme') || changedProperties.has('theme'))
+    ) {
+      const resolved = this._resolvedPosition;
+      if (this.btnType !== resolved) this.btnType = resolved;
     }
     if (changedProperties.has('searchBase') ||
         changedProperties.has('searchKey') ||
@@ -1626,9 +2122,78 @@ export class LwAiSearch extends LitElement {
     return normalizeWidgetStyle(local || this._resolvedTheme.widget.style);
   }
 
+  /**
+   * Resolved btn-type: 'float', 'bar', 'normal' or its 'btn-normal' alias.
+   *
+   * An explicit btn-type attribute on the tag always wins, whatever value it
+   * carries — including "normal", which is a deliberate, unrelated choice
+   * (see _inline) that a backend-configured position must never override.
+   * Only when nothing was written on the tag does the backend theme's
+   * widget.position get a say, same precedence widget-style already follows
+   * via _launcherStyle.
+   */
+  get _resolvedPosition() {
+    if (this._btnTypeExplicit) return String(this.btnType ?? '').trim();
+    // normalizeWidgetPosition answers 'floating' or 'bar'; 'bar' is the
+    // only value that changes the layout, so everything else is the
+    // corner button, whose btn-type spelling is 'float'.
+    return normalizeWidgetPosition(this._resolvedTheme.widget.position) === 'bar'
+      ? 'bar'
+      : 'float';
+  }
+
   /** True when btn-type asks for an inline (non-fixed) button. */
   get _inline() {
-    return /^(btn-)?normal$/i.test(this.btnType ?? '');
+    return /^(btn-)?normal$/i.test(this._resolvedPosition);
+  }
+
+  /**
+   * Active bar state: 'search', 'questions' (the fixed four) or 'scroll'
+   * (every question, moving). The visitor's choice wins once they press
+   * an icon; before that the tag's bar-mode seeds it, defaulting to the
+   * fixed four.
+   */
+  get _activeBarMode() {
+    const chosen = String(this._barMode || this.barMode || '').trim().toLowerCase();
+    return LwAiSearch.barModes.includes(chosen) ? chosen : 'questions';
+  }
+
+  _setBarMode(mode) {
+    this._barMode = mode;
+    this.dispatchEvent(new CustomEvent('lw-ask-bar-mode', {
+      detail: { mode }, bubbles: true, composed: true,
+    }));
+  }
+
+  _toggleBarMinimized = () => {
+    this._barMinimized = !this._barMinimized;
+    this.dispatchEvent(new CustomEvent('lw-ask-bar-minimize', {
+      detail: { minimized: this._barMinimized }, bubbles: true, composed: true,
+    }));
+  };
+
+  _onBarSubmit = (e) => {
+    e.preventDefault();
+    const input = this.shadowRoot?.querySelector('.bar-form input');
+    this.openSearch(input?.value.trim() || '');
+  };
+
+  /**
+   * 'fullpage' or 'panel'. A search-display attribute on the tag wins over
+   * the backend config, the precedence every other theme value follows.
+   */
+  get _searchDisplayMode() {
+    const local = String(this.searchDisplay ?? '').trim();
+    return normalizeSearchDisplay(local || this._resolvedTheme.searchDisplayMode);
+  }
+
+  get _isPanel() {
+    return this._searchDisplayMode === 'panel';
+  }
+
+  /** True when widget.position (or btn-type) asks for the bottom bar. */
+  get _isBar() {
+    return this._resolvedPosition === 'bar';
   }
 
   get _hoverEnabled() {
@@ -1637,7 +2202,8 @@ export class LwAiSearch extends LitElement {
     // search modal. This avoids relying only on the browser's hover report.
     const touchOrTablet = window.matchMedia('(pointer: coarse)').matches
       || window.innerWidth <= 1024;
-    return !this._inline && this.trigger === 'hover' && this._canHover && !touchOrTablet;
+    return !this._inline && !this._isBar
+      && this.trigger === 'hover' && this._canHover && !touchOrTablet;
   }
 
   _setOpen(value) {
@@ -1665,7 +2231,7 @@ export class LwAiSearch extends LitElement {
     // The inline button has no panel, so it always just follows the link.
     // Elsewhere, without hover — touch, or trigger="click" — the first
     // press reveals the options and the press after that follows it.
-    if (!this._inline && !this._hoverEnabled && !this.open) {
+    if (!this._inline && !this._isBar && !this._hoverEnabled && !this.open) {
       e.preventDefault();
       this._setOpen(true);
       return;
@@ -1724,6 +2290,88 @@ export class LwAiSearch extends LitElement {
   // middle-click / open-in-new-tab.
 
   /** Open the modal, optionally running `query` straight away. */
+  /**
+   * Squeeze the host page into the space the panel leaves, and put it back
+   * again. Narrowing <html> reflows the whole document rather than only
+   * body's children, but the site's own position:fixed elements are laid
+   * out against the viewport and would stay full width and slide under the
+   * panel, so the wide ones are pulled in too and a resize event is fired
+   * for any script that measures on its own.
+   *
+   * Every property this touches is recorded first and written back on
+   * close, including the ones set on the site's elements.
+   */
+  _pushPage(on) {
+    const root = document.documentElement;
+
+    if (!on) {
+      const saved = this._pagePush;
+      if (!saved) return;
+      root.style.width     = saved.width;
+      root.style.minWidth  = saved.minWidth;
+      root.style.overflowX = saved.overflowX;
+      root.style.transition = saved.transition;
+      saved.patched.forEach(({ el, props }) => {
+        Object.entries(props).forEach(([prop, [value, priority]]) => {
+          el.style.removeProperty(prop);
+          if (value) el.style.setProperty(prop, value, priority);
+        });
+      });
+      this._pagePush = null;
+      this.style.removeProperty('--lw-ask-panel-inset');
+      window.dispatchEvent(new Event('resize'));
+      return;
+    }
+
+    if (this._pagePush) return;
+
+    const overlay = this.shadowRoot?.querySelector('#ai-search-overlay');
+    const width = Math.round(overlay?.getBoundingClientRect().width || 0);
+    if (!width) return;
+
+    const patched = [];
+    const save = (el, prop) =>
+      [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)];
+
+    // Only elements wide enough to actually run under the panel are worth
+    // touching; narrow fixed things (chat bubbles, back-to-top buttons)
+    // are left where the site put them.
+    Array.prototype.forEach.call(document.body.getElementsByTagName('*'), el => {
+      if (el === this || this.contains(el)) return;
+      if (getComputedStyle(el).position !== 'fixed') return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < window.innerWidth * 0.5 || rect.height < 6) return;
+      patched.push({ el, props: {
+        width:       save(el, 'width'),
+        'max-width': save(el, 'max-width'),
+        right:       save(el, 'right'),
+      } });
+      el.style.setProperty('width', `calc(100% - ${width}px)`, 'important');
+      el.style.setProperty('max-width', `calc(100% - ${width}px)`, 'important');
+      el.style.setProperty('right', `${width}px`, 'important');
+    });
+
+    this._pagePush = {
+      width:      root.style.width,
+      minWidth:   root.style.minWidth,
+      overflowX:  root.style.overflowX,
+      transition: root.style.transition,
+      patched,
+    };
+
+    root.style.transition = 'width .28s ease';
+    root.style.width      = `calc(100% - ${width}px)`;
+    root.style.minWidth   = '0';
+    root.style.overflowX  = 'hidden';
+
+    // This element is fixed too, so it needs the same inset to stay clear
+    // of the panel.
+    this.style.setProperty('--lw-ask-panel-inset', `${width}px`);
+
+    window.dispatchEvent(new Event('resize'));
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
+  }
+
   openSearch(query = '') {
     // Collapse the question panel so the modal is not layered over it.
     this._setOpen(false);
@@ -1733,7 +2381,13 @@ export class LwAiSearch extends LitElement {
     activeModal = this;
 
     this.modalOpen = true;
-    document.body.style.overflow = 'hidden';
+    // The full-page modal owns the viewport, so the page behind it is
+    // locked. The panel leaves the page usable and pushes it aside.
+    if (this._isPanel) {
+      this.updateComplete.then(() => this._pushPage(true));
+    } else {
+      document.body.style.overflow = 'hidden';
+    }
     this._resetToHeroView();
 
     // A pushed history entry lets Back / the Android back button close
@@ -1788,6 +2442,7 @@ export class LwAiSearch extends LitElement {
   _teardownModal() {
     this._postCommit = false;
     this.modalOpen   = false;
+    this._pushPage(false);
     document.body.style.overflow = '';
     this._abortController?.abort();
     if (activeModal === this) activeModal = null;
@@ -2176,7 +2831,9 @@ export class LwAiSearch extends LitElement {
       <div class="ai-search-launcher" style=${this._themeStyle}>
         ${this._inline
           ? this._renderInlineButton()
-          : html`${this._renderQuestions()}${this._renderFab()}`}
+          : this._isBar
+            ? this._renderBar()
+            : html`${this._renderQuestions()}${this._renderFab()}`}
       </div>
       ${this._renderModal()}
     `;
@@ -2248,7 +2905,7 @@ export class LwAiSearch extends LitElement {
     const questions = this._suggestedQuestions.slice(0, questionLimit);
     return html`
       <div id="ai-search-overlay"
-           class=${this.modalOpen ? 'open' : ''}
+           class="${this.modalOpen ? 'open' : ''} ${this._isPanel ? 'as-panel' : ''}"
            style=${[this._modalTopVar, this._themeStyle].filter(Boolean).join(';')}
            @click=${this._onOverlayClick}>
         <div id="ai-search-modal"
@@ -2388,6 +3045,112 @@ export class LwAiSearch extends LitElement {
     const p = e.detail?.post;
     if (!p) return;
     if (p.url) window.location.assign(p.url);
+  }
+
+  /**
+   * The bottom bar. The icon group on the left switches between three
+   * states — a search field, the fixed four questions, or every question
+   * scrolling past — and the CTA sits at the far end throughout.
+   *
+   * The questions and the CTA are the same .pill and .pill.cta the
+   * floating panel uses, so Widget › Questions and Widget › Button keep
+   * styling them here exactly as they do there.
+   */
+  _renderBar() {
+    const mode = this._activeBarMode;
+
+    const cta = this.ctaHref
+      ? html`
+        <a class="pill cta"
+           href=${this.ctaHref}
+           target=${this.ctaTarget || '_self'}
+           rel=${this.ctaTarget === '_blank' ? 'noreferrer noopener' : ''}
+           @click=${this._onCta}>
+          ${LwAiSearch.sparkleIcon}${this.ctaLabel}
+        </a>`
+      : html`
+        <button class="pill cta" @click=${this._onCta}>
+          ${LwAiSearch.sparkleIcon}${this.ctaLabel}
+        </button>`;
+
+    const modeButton = (value, icon, labelText) => html`
+      <button class="bar-mode"
+              aria-pressed=${mode === value ? 'true' : 'false'}
+              aria-label=${labelText}
+              title=${labelText}
+              @click=${() => this._setBarMode(value)}>${icon}</button>`;
+
+    const minimized = this._barMinimized;
+
+    return html`
+      <div class="bar-wrap ${minimized ? 'is-minimized' : ''}">
+        <button class="bar-toggle"
+                aria-expanded=${minimized ? 'false' : 'true'}
+                aria-label=${minimized ? 'Show suggestions' : 'Hide suggestions'}
+                title=${minimized ? 'Show suggestions' : 'Hide suggestions'}
+                @click=${this._toggleBarMinimized}>
+          ${minimized ? LwAiSearch.restoreIcon : LwAiSearch.minimizeIcon}
+        </button>
+
+      <div class="bar">
+        <div class="bar-modes" role="group" aria-label="Suggestion display">
+          ${modeButton('search',    LwAiSearch.searchIcon, 'Search')}
+          ${modeButton('questions', LwAiSearch.gridIcon,   'Suggested questions')}
+          ${modeButton('scroll',    LwAiSearch.listIcon,   'All questions')}
+        </div>
+
+        <span class="bar-divider" aria-hidden="true"></span>
+
+        ${this._renderBarBody(mode)}
+
+        ${cta}
+      </div>
+      </div>`;
+  }
+
+  _renderBarBody(mode) {
+    const questions = this._suggestedQuestions;
+
+    const pill = (question, index) => html`
+      <button class="pill"
+              title=${question}
+              @click=${e => this._onQuestion(e, question, index)}>${question}</button>`;
+
+    if (mode === 'search') {
+      return html`
+        <div class="bar-body">
+          <form class="bar-form" @submit=${this._onBarSubmit}>
+            ${LwAiSearch.searchIcon}
+            <input type="text"
+                   autocomplete="off"
+                   placeholder=${this.barPlaceholder}
+                   aria-label=${this.barPlaceholder} />
+          </form>
+        </div>`;
+    }
+
+    if (mode === 'scroll') {
+      // The list is rendered twice so the -50% reset lands on an identical
+      // frame; the copy is hidden from assistive tech and from tabbing.
+      const track = repeat => html`
+        <div class="bar-track" aria-hidden=${repeat ? 'true' : 'false'}>
+          ${questions.map(pill)}
+          ${questions.map((question, index) => html`
+            <button class="pill" tabindex="-1" aria-hidden="true"
+                    @click=${e => this._onQuestion(e, question, index)}>${question}</button>`)}
+        </div>`;
+      return html`
+        <div class="bar-body">
+          <div class="bar-marquee">${track(false)}</div>
+        </div>`;
+    }
+
+    return html`
+      <div class="bar-body">
+        <div class="bar-fixed">
+          ${questions.slice(0, LwAiSearch.barFixedQuestions).map(pill)}
+        </div>
+      </div>`;
   }
 
   _renderQuestions() {
