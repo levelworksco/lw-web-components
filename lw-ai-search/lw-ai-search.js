@@ -26,7 +26,7 @@ const DEFAULT_AI_THEME = {
     backgroundColor: '#F4F4F6',
   },
   cornerRadius: 12,
-  suggestedQuestionsStyle: 'card',
+  suggestedQuestionsStyle: 'chips',
   // 'fullpage' covers the viewport (the current behaviour); 'panel' slides
   // in from the right and squeezes the page into what is left.
   searchDisplayMode: 'fullpage',
@@ -36,6 +36,17 @@ const DEFAULT_AI_THEME = {
       'What content sources do you support?',
       'Can I customize the search results?',
       'How do I get started?',
+      'test question 5',
+      'test question 6',
+      'test question 7',
+      'test question 8',
+      'test question 9',
+      'test question 10',
+      'test question 11',
+      'test question 12',
+      'test question 13',
+      'test question 14',
+      'test question 15',
     ],
   },
   page: { backgroundColor: '#ffffff' },
@@ -1887,6 +1898,7 @@ export class LwAiSearch extends LitElement {
     // Focus can sit outside the component while the modal is up, so
     // Escape and Back are handled at the document / window level.
     document.addEventListener('keydown', this._onDocKeydown);
+    window.addEventListener('resize', this._onWindowResize);
   }
 
   disconnectedCallback() {
@@ -1895,8 +1907,16 @@ export class LwAiSearch extends LitElement {
     this.removeEventListener('focusin',    this._onEnter);
     this.removeEventListener('keydown',    this._onKeydown);
     document.removeEventListener('keydown', this._onDocKeydown);
-    // Never leave the page unscrollable behind a removed modal.
+    window.removeEventListener('resize', this._onWindowResize);
+    // Never leave the page unscrollable behind a removed modal, nor
+    // padded for a bar that is no longer there.
     if (this.modalOpen) this._teardownModal();
+    this._barSpaceObserver?.disconnect();
+    this._barSpaceObserver = null;
+    if (this._barSpace != null) {
+      document.body.style.paddingBottom = this._barSpace;
+      this._barSpace = null;
+    }
     clearTimeout(this._debounceTimer);
     this._abortController?.abort();
     this._themeAbortController?.abort();
@@ -1904,6 +1924,9 @@ export class LwAiSearch extends LitElement {
   }
 
   updated(changedProperties) {
+    // After every render, so the reserved space tracks the bar's height
+    // through mode switches, minimizing, and position changes.
+    this._syncBarSpace();
     if (changedProperties.has('theme')) {
       Promise.all(themeFontFamilies(this._resolvedTheme).map(loadGoogleFont));
     }
@@ -2300,6 +2323,54 @@ export class LwAiSearch extends LitElement {
   // middle-click / open-in-new-tab.
 
   /** Open the modal, optionally running `query` straight away. */
+  /**
+   * The bar is fixed to the bottom of the viewport, so it covers whatever
+   * the page ends with -- a footer, a copyright line, the last row of a
+   * list. Padding the body by the strip's own height gives that content
+   * somewhere to go, and the page can be scrolled clear of the widget.
+   *
+   * The height is re-read rather than assumed: it changes with the bar's
+   * state (a wrapped question on a phone is taller), when it is minimized
+   * down to its tab, and on resize.
+   */
+  _syncBarSpace() {
+    const body = document.body;
+    if (!body) return;
+
+    const wrap = this.shadowRoot?.querySelector('.bar-wrap');
+    if (!this._isBar || this._inline || !wrap) {
+      if (this._barSpace != null) {
+        body.style.paddingBottom = this._barSpace;
+        this._barSpace = null;
+      }
+      this._barSpaceObserver?.disconnect();
+      this._barSpaceObserver = null;
+      return;
+    }
+
+    // Minimized, the strip is display:none and only the tab shows, so the
+    // reserved height follows whichever is on screen.
+    const bar = this.shadowRoot.querySelector('.bar');
+    const tab = this.shadowRoot.querySelector('.bar-toggle');
+    const visible = el => el && el.getBoundingClientRect().height > 0;
+    const height = Math.ceil(
+      visible(bar) ? bar.getBoundingClientRect().height
+                   : (visible(tab) ? tab.getBoundingClientRect().height : 0));
+    if (!height) return;
+
+    // Remember what the site had before the first write, never after.
+    if (this._barSpace == null) this._barSpace = body.style.paddingBottom;
+    const next = `${height}px`;
+    if (body.style.paddingBottom !== next) body.style.paddingBottom = next;
+
+    if (!this._barSpaceObserver && window.ResizeObserver) {
+      this._barSpaceObserver = new ResizeObserver(() => this._syncBarSpace());
+      this._barSpaceObserver.observe(wrap);
+    }
+  }
+
+  _onWindowResize = () => this._syncBarSpace();
+
   /**
    * Squeeze the host page into the space the panel leaves, and put it back
    * again. Narrowing <html> reflows the whole document rather than only
