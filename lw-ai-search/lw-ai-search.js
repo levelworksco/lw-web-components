@@ -1180,6 +1180,7 @@ export class LwAiSearch extends LitElement {
 
     /* the badge is fixed to the viewport in full-page mode, which would
        leave it out on the squeezed page rather than inside the panel */
+    /* Anchored to the panel, not to the scrolling results inside it. */
     #ai-search-overlay.as-panel .powered-by {
       position: absolute;
       right: 16px;
@@ -3002,10 +3003,13 @@ export class LwAiSearch extends LitElement {
           </div>
 
           <div class="modal-loader ${this._loading ? '' : 'is-hidden'}">Searching...</div>
+        </div>
 
-          <div class="powered-by">
-            ${LwAiSearch.poweredByBadge}
-          </div>
+        <!-- Outside #ai-search-modal on purpose: in panel mode the modal
+             is transformed, which would make it the containing block for
+             this badge and scroll it away with the results. -->
+        <div class="powered-by">
+          ${LwAiSearch.poweredByBadge}
         </div>
       </div>
     `;
