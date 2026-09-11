@@ -497,7 +497,7 @@ export class LwAiSearch extends LitElement {
   // different lengths move at the same pace rather than the short one
   // whipping round. Multiply the whole thing with --lw-ask-row-speed:
   // 2 for half speed again, 0.5 to double it.
-  static chipRowSecondsPerItem = 15;
+  static chipRowSecondsPerItem = 20;
 
   static chipsPerRow = 10;
   static chipsPerRowShort = 5;
@@ -557,6 +557,7 @@ export class LwAiSearch extends LitElement {
     _barMode:      { state: true },
     _barMinimized: { state: true },
     _chipRowCopies: { state: true },
+    _displayOverride: { state: true },
     barMode:       { type: String, attribute: 'bar-mode' },
     barPlaceholder:{ type: String, attribute: 'bar-placeholder' },
   };
@@ -820,7 +821,7 @@ export class LwAiSearch extends LitElement {
          and Button settings the CTA, both by way of .pill / .cta. */
       background: var(--lw-ai-widget-bg, #ffffff);
       color: var(--lw-ai-widget-icon-color, #000000);
-      border-radius: var(--lw-ask-bar-radius, 14px 14px 0 0);
+      border-radius: var(--lw-ask-bar-radius, 0);
       /* the fab's shadow points down, for a circle floating above the
          page — a bar flush with the bottom edge wants it upward */
       box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.16);
@@ -1215,8 +1216,11 @@ export class LwAiSearch extends LitElement {
        needs the space back. */
     #ai-search-overlay.as-panel .hero {
       padding: 18px 16px 8px;
-      /* takes the room left under the head and hands it to .suggested */
-      flex: 1 1 auto;
+      /* Grows to hand the spare room to .suggested, but never shrinks:
+         with a tall result list the flex algorithm would otherwise
+         squeeze this box below its own head and the search field would
+         spill out over the results. */
+      flex: 1 0 auto;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -1305,6 +1309,54 @@ export class LwAiSearch extends LitElement {
       padding: 4px 8px;
     }
     #ai-search-close:hover { color: #333; }
+
+    /* Layout switcher: both options are on screen, the active one lit,
+       so it reads as a choice rather than a button that does something
+       unnamed. Neutral greys, so it sits on a light or a dark panel
+       without being told which. */
+    #ai-search-display {
+      position: absolute;
+      top: 20px;
+      right: 66px;
+      display: inline-flex;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--lw-ask-switch-track, rgba(128, 128, 128, 0.16));
+      line-height: 0;
+    }
+
+    .display-option {
+      appearance: none;
+      border: none;
+      background: none;
+      display: flex;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: var(--lw-ai-close-color, #aaa);
+      opacity: 0.7;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .display-option svg { width: 16px; height: 16px; }
+    .display-option:hover { opacity: 1; }
+
+    .display-option[aria-pressed="true"] {
+      background: var(--lw-ask-switch-thumb, rgba(128, 128, 128, 0.32));
+      opacity: 1;
+    }
+    .display-option:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: -2px;
+    }
+
+    #ai-search-overlay.as-panel #ai-search-display { top: 8px; right: 40px; padding: 2px; }
+    #ai-search-overlay.as-panel .display-option { padding: 4px 7px; }
+    #ai-search-overlay.as-panel .display-option svg { width: 14px; height: 14px; }
+
+    @media (max-width: 560px) {
+      #ai-search-display { display: none; }
+    }
 
     /* Brand logo shown at the top of the search modal. */
     .client-logo {
@@ -1667,7 +1719,7 @@ export class LwAiSearch extends LitElement {
 
     .further-reading {
       margin: 26px 0 12px;
-      font-size: 16px;
+      font-size: 24px;
       font-weight: 700;
       font-family: var(--lw-ai-results-heading-font, 'Inter', sans-serif);
       color: var(--lw-ai-results-heading-color, #1a1a1a);
@@ -1830,6 +1882,21 @@ export class LwAiSearch extends LitElement {
       <line x1="12" y1="8" x2="12" y2="16"/>
     </svg>`;
 
+  // Display-mode toggle: arrows out to take the whole page, a docked
+  // column to go back to the side panel.
+  static expandIcon = html`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 4H4v5M15 4h5v5M15 20h5v-5M9 20H4v-5"/>
+    </svg>`;
+
+  static panelIcon = html`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+         stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2"/>
+      <line x1="14" y1="5" x2="14" y2="19"/>
+    </svg>`;
+
   static sparkleIcon = html`
     <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
       <path d="M8 1.2l1.55 4.05a1 1 0 0 0 .58.58L14.2 7.4l-4.07 1.57a1 1 0 0 0-.58.58L8 13.6l-1.55-4.05a1 1 0 0 0-.58-.58L1.8 7.4l4.07-1.57a1 1 0 0 0 .58-.58z"/>
@@ -1882,6 +1949,9 @@ export class LwAiSearch extends LitElement {
     // repeated so a single copy always spans the viewport. Measured after
     // render, because it depends on how wide the questions turn out to be.
     this._chipRowCopies = [];
+    // The visitor's own choice of panel vs full page, once they press the
+    // toggle. Empty means "whatever the tag or the config says".
+    this._displayOverride = '';
     this.btnSubtext = '';
     this.label      = 'Ask our blog';
     this.open       = false;
@@ -2350,9 +2420,42 @@ export class LwAiSearch extends LitElement {
    * the backend config, the precedence every other theme value follows.
    */
   get _searchDisplayMode() {
+    // Precedence: what the visitor picked, then the tag, then the config.
+    const chosen = String(this._displayOverride ?? '').trim();
+    if (chosen) return normalizeSearchDisplay(chosen);
     const local = String(this.searchDisplay ?? '').trim();
     return normalizeSearchDisplay(local || this._resolvedTheme.searchDisplayMode);
   }
+
+  /**
+   * Swap the open search between the side panel and the full page.
+   *
+   * The element and its results stay exactly as they are -- only the
+   * layout changes -- but the two modes treat the host page differently,
+   * so the squeeze and the scroll lock have to be handed over: the panel
+   * pushes the page aside and leaves it usable, the full page covers it
+   * and holds it still.
+   */
+  _toggleDisplayMode = () => this._setDisplayMode(this._isPanel ? 'fullpage' : 'panel');
+
+  _setDisplayMode = (next) => {
+    if (normalizeSearchDisplay(next) === this._searchDisplayMode) return;
+    this._displayOverride = next;
+
+    this.updateComplete.then(() => {
+      if (next === 'panel') {
+        document.body.style.overflow = '';
+        this._pushPage(true);
+      } else {
+        this._pushPage(false);
+        document.body.style.overflow = 'hidden';
+      }
+    });
+
+    this.dispatchEvent(new CustomEvent('lw-ask-display-change', {
+      detail: { mode: next }, bubbles: true, composed: true,
+    }));
+  };
 
   get _isPanel() {
     return this._searchDisplayMode === 'panel';
@@ -3273,6 +3376,21 @@ export class LwAiSearch extends LitElement {
              aria-modal="true"
              aria-label=${`${this._resolvedTheme.text.header.text} search`}
              @scroll=${this._onModalScroll}>
+
+          ${(() => {
+            const panel = this._isPanel;
+            const option = (mode, icon, label) => html`
+              <button class="display-option"
+                      aria-pressed=${(mode === 'panel') === panel ? 'true' : 'false'}
+                      aria-label=${label}
+                      title=${label}
+                      @click=${() => this._setDisplayMode(mode)}>${icon}</button>`;
+            return html`
+              <div id="ai-search-display" role="group" aria-label="Search layout">
+                ${option('panel', LwAiSearch.panelIcon, 'Side panel')}
+                ${option('fullpage', LwAiSearch.expandIcon, 'Full page')}
+              </div>`;
+          })()}
 
           <button id="ai-search-close" aria-label="Close search"
                   @click=${this.closeSearch}>&times;</button>
