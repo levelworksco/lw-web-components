@@ -2665,7 +2665,13 @@ export class LwAiSearch extends LitElement {
 
   _commitSearch() {
     const q = this._input?.value.trim() || '';
-    if (!q || this._searchCommitted) return;
+    if (!q) return;
+    // No "already committed" guard here — every Enter press re-runs the
+    // search. Search-as-you-type used to be what carried later searches
+    // once _searchCommitted was true (see the disabled block in
+    // _onModalInput); now that it's off, this is the only path, so it
+    // must not lock up after the first query. _fetchSummary already
+    // aborts any in-flight stream, so a rapid re-submit is safe.
     this._loading       = true;
     this._noResults      = false;
     this._resultsReady   = false;
