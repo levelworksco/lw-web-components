@@ -1918,6 +1918,25 @@ export class LwAiSearch extends LitElement {
     return mergeTheme(mergeTheme(DEFAULT_AI_THEME, backendTheme), localTheme);
   }
 
+  /**
+   * Widget Styling Config › maxSearchResultsToDisplay — caps how many of
+   * the /summary/stream hits the Further Reading list shows. Frontend-only:
+   * it slices what's already in `_results`, it never changes what's asked
+   * for or received from the backend. Unset/invalid means no cap.
+   */
+  get _maxSearchResultsToDisplay() {
+    const raw = this._backendTheme?.maxSearchResultsToDisplay
+      ?? this._backendTheme?.MaxSearchResultsToDisplay;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  }
+
+  /** `_results`, capped to `_maxSearchResultsToDisplay` for display. */
+  get _furtherReadingResults() {
+    const max = this._maxSearchResultsToDisplay;
+    return max ? this._results.slice(0, max) : this._results;
+  }
+
   get _suggestedQuestions() {
     // Backend-managed queries win; the theme items remain the fallback
     // for when none are configured or the request fails.
@@ -3318,8 +3337,8 @@ export class LwAiSearch extends LitElement {
                   default-view="list"
                   hide-header
                   .autoLoad=${false}
-                  .posts=${this._results.map(item => this._toPost(item))}
-                  .totalCount=${this._results.length}
+                  .posts=${this._furtherReadingResults.map(item => this._toPost(item))}
+                  .totalCount=${this._furtherReadingResults.length}
                   @post-click=${this._onPostClick}
                 ></lw-blog-list>
               ` : ''}
