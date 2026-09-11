@@ -764,12 +764,17 @@ export class LwAiSearch extends LitElement {
       padding: 7px 10px 5px;
       border-radius: 10px 10px 0 0;
       background: var(--lw-ai-widget-bg, #ffffff);
-      color: var(--lw-ask-bar-toggle-color, rgba(17, 17, 17, 0.45));
+      /* Widget › Icon Colour, the same setting behind the mode icons and
+         the floating button's glyph. Slightly recessive at rest, since
+         the tab is a secondary control, and full strength on hover. */
+      color: var(--lw-ask-bar-toggle-color,
+             var(--lw-ai-widget-icon-color, rgba(17, 17, 17, 0.9)));
+      opacity: var(--lw-ask-bar-toggle-opacity, 0.6);
       cursor: pointer;
       box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.10);
-      transition: color 0.15s;
+      transition: color 0.15s, opacity 0.15s;
     }
-    .bar-toggle:hover { color: var(--lw-ask-bar-toggle-color-hover, rgba(17, 17, 17, 0.75)); }
+    .bar-toggle:hover { opacity: var(--lw-ask-bar-toggle-opacity-hover, 1); }
     .bar-toggle svg { width: 20px; height: 20px; display: block; }
     .bar-toggle:focus-visible {
       outline: 2px solid currentColor;
