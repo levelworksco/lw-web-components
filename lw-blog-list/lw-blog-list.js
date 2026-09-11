@@ -91,6 +91,7 @@ export function formatCrawledText(raw) {
 //   detail-url   (String)  — page navigated to on post click
 //   default-view (String)  — 'list' | 'grid'
 //   default-sort (String)  — initial sort key (see SORT_OPTIONS)
+//   hide-header  (Boolean) — hide the "N Blogs / view toggle / sort" strip
 //   + all --pl-* CSS custom properties
 // ─────────────────────────────────────────────────────────────
 
@@ -117,6 +118,10 @@ export class LwBlogList extends LitElement {
 
     defaultView: { attribute: 'default-view' },
     defaultSort: { attribute: 'default-sort' },
+    // Hide the "N Blogs / view toggle / sort" strip — e.g. a caller (like
+    // <lw-ai-search>'s Further Reading list) that has no use for sorting or
+    // a result count of its own pre-fetched, single-batch hits.
+    hideHeader: { type: Boolean, attribute: 'hide-header', reflect: true },
 
     // API configuration
     baseUrl:   { attribute: 'base-url'   },
@@ -217,6 +222,7 @@ export class LwBlogList extends LitElement {
     this.apiKey          = '';
     this.detailUrl       = '';
     this.autoLoad        = true;
+    this.hideHeader      = false;
     this._view           = 'list';
     this._sort           = 'newest';
     this._sortOpen       = false;
@@ -959,7 +965,7 @@ export class LwBlogList extends LitElement {
       <div class="pl-outer">
         <div class="pl-container">
 
-          ${hasResults ? html`
+          ${hasResults && !this.hideHeader ? html`
           <div class="pl-header">
             <span class="pl-result-count">${countText}</span>
 

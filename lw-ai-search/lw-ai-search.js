@@ -369,6 +369,14 @@ import '../lw-blog-overview/lw-blog-overview.js';
 // the same screen as <lw-ai-search>, ported here, so the two are
 // independent copies: a change to one does not reach the other.
 //
+// A search now makes exactly one request: POST {search-base}/api/v1/search/
+// {search-index}/summary/stream. It returns both the AI overview and the
+// hits used for Further Reading, so the plain POST /api/v1/search/{index}
+// endpoint (_fetchResults / _endpoint below) is disabled — its call sites
+// are commented out, not removed, in case per-page results search comes
+// back. Search-as-you-type is disabled the same way; Enter is the only
+// trigger (see _onModalInput / _commitSearch).
+//
 // ATTRIBUTES — search API (same attribute names as <lw-ai-search>):
 //   search-base   (String)  API origin — set it on the tag, no default.
 //                           Empty means same-origin (/api/v1/search/…).
@@ -2565,10 +2573,16 @@ export class LwAiSearch extends LitElement {
     const trimmed = value.trim();
     this._currentQuery = trimmed;
     if (!trimmed) { this._resetSearch(); return; }
-    this._debounceTimer = setTimeout(() => {
-      if (!this._searchCommitted) return;
-      this._fetchResults(trimmed, 1);
-    }, 350);
+
+    // ── Search-as-you-type (disabled — kept for reference) ──
+    // Used to run a debounced re-search on every keystroke once the first
+    // search had been committed via Enter, which made typing behave
+    // inconsistently before vs. after that first commit. Search now runs
+    // only on Enter (see _onModalKeydown / _commitSearch).
+    // this._debounceTimer = setTimeout(() => {
+    //   if (!this._searchCommitted) return;
+    //   this._fetchResults(trimmed, 1);
+    // }, 350);
   }
 
   _onModalKeydown(e) {
@@ -2590,11 +2604,14 @@ export class LwAiSearch extends LitElement {
   _onModalScroll() {
     const panel = this._modal;
     if (!panel) return;
-    const nearBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 300;
-    if (nearBottom && this._hasMore && !this._loading && this._currentQuery) {
-      this._page++;
-      this._fetchResults(this._currentQuery, this._page, { prefetch: true });
-    }
+    // const nearBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 300;
+    // Pagination disabled along with /api/v1/search/: /summary/stream
+    // returns one batch of hits with no paging, and _hasMore is now
+    // always false after a search (see _handleSseFrame's 'hits' case).
+    // if (nearBottom && this._hasMore && !this._loading && this._currentQuery) {
+    //   this._page++;
+    //   this._fetchResults(this._currentQuery, this._page, { prefetch: true });
+    // }
   }
 
   /** A question card in the modal runs that question straight away. */
@@ -2615,13 +2632,19 @@ export class LwAiSearch extends LitElement {
   _commitSearch() {
     const q = this._input?.value.trim() || '';
     if (!q || this._searchCommitted) return;
+    this._loading       = true;
+    this._noResults      = false;
+    this._resultsReady   = false;
     this._fetchSummary(q);
     this._currentQuery    = q;
     this._searchCommitted = true;
     this._showFeatures    = false;
     this._showResults     = true;
     this._postCommit      = true;
-    this._fetchResults(q, 1);
+    // /api/v1/search/{index} disabled for now — every search runs through
+    // /summary/stream only (see _fetchSummary above and _handleSseFrame's
+    // 'hits' case, which now supplies Further Reading too).
+    // this._fetchResults(q, 1);
   }
 
   get _endpoint() {
@@ -2770,6 +2793,15 @@ export class LwAiSearch extends LitElement {
       // The summary endpoint fails occasionally; leave whatever is
       // already rendered rather than blanking the section.
       console.error('<lw-ai-search> summary stream:', err);
+      // Only show the error state if the 'hits' event never even arrived —
+      // once results are showing, a later failure (e.g. the token stream
+      // dropping) shouldn't blank them out from under the user.
+      if (!this._resultsReady) {
+        this._noResults    = true;
+        this._noResultsMsg = 'Something went wrong. Please try again.';
+        this._resultsReady = true;
+      }
+      this._loading = false;
     }
   }
 
@@ -2777,6 +2809,10 @@ export class LwAiSearch extends LitElement {
    * One SSE frame. `hits` carries the citation articles and starts a new
    * answer, `token` appends (never replaces), `error` is an in-band
    * failure that arrives after a 200 and so cannot be caught by res.ok.
+   *
+   * `hits` is also the sole source for the "Further Reading" list now
+   * that /api/v1/search/ is disabled — it feeds `_results` directly,
+   * the same array <lw-blog-list> was reading from that endpoint.
    */
   _handleSseFrame(frame) {
     const event = (frame.match(/^event:\s*(.*)$/m) || [])[1]?.trim();
@@ -2788,8 +2824,20 @@ export class LwAiSearch extends LitElement {
 
     switch (event) {
       case 'hits':
-        this._summaryHits = data?.hits ?? [];
-        this._summaryText = '';
+        this._summaryHits  = data?.hits ?? [];
+        this._results      = this._summaryHits;
+        // One batch, no paging — see _onModalScroll.
+        this._hasMore       = false;
+        this._resultsReady  = true;
+        this._noResults     = this._results.length === 0;
+        this._noResultsMsg  = 'No results found';
+        this._loading       = false;
+        this._summaryText   = '';
+        this.dispatchEvent(new CustomEvent('lw-ask-results', {
+          detail:   { query: this._currentQuery, page: 1, results: this._results, total: this._results.length },
+          bubbles:  true,
+          composed: true,
+        }));
         break;
       case 'token':
         this._summaryText += data?.text ?? '';
@@ -3085,9 +3133,10 @@ export class LwAiSearch extends LitElement {
                 <lw-blog-list
                   container-background="transparent"
                   default-view="list"
+                  hide-header
                   .autoLoad=${false}
                   .posts=${this._results.map(item => this._toPost(item))}
-                  .totalCount=${this._totalHits}
+                  .totalCount=${this._results.length}
                   @post-click=${this._onPostClick}
                 ></lw-blog-list>
               ` : ''}
