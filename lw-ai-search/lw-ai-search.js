@@ -1216,11 +1216,10 @@ export class LwAiSearch extends LitElement {
        needs the space back. */
     #ai-search-overlay.as-panel .hero {
       padding: 18px 16px 8px;
-      /* Grows to hand the spare room to .suggested, but never shrinks:
-         with a tall result list the flex algorithm would otherwise
-         squeeze this box below its own head and the search field would
-         spill out over the results. */
-      flex: 1 0 auto;
+      /* Before a search, this box owns the spare room and hands it to
+         .suggested, which scrolls inside it -- so the head above stays
+         put however many questions there are. */
+      flex: 1 1 auto;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -1230,6 +1229,14 @@ export class LwAiSearch extends LitElement {
     #ai-search-overlay.as-panel .hero h1,
     #ai-search-overlay.as-panel .hero > p,
     #ai-search-overlay.as-panel .search-bar { flex: none; }
+
+    /* Once results are up, .suggested is gone and the room belongs to
+       them instead. The hero is pinned to its own height here: left able
+       to shrink, a tall result list would squeeze it below its head and
+       the search field would spill out over the answer. */
+    #ai-search-overlay.as-panel #ai-search-modal.post-commit .hero {
+      flex: 0 0 auto;
+    }
 
     #ai-search-overlay.as-panel .suggested,
     #ai-search-overlay.as-panel .modal-results {
