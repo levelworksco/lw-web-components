@@ -493,6 +493,12 @@ export class LwAiSearch extends LitElement {
   // Chips on the full page are laid out in scrolling rows: ten to a row,
   // or five when that is all there is, so a short list still makes two
   // rows travelling in opposite directions rather than one lonely one.
+  // Seconds a row spends travelling per question in it, so rows of
+  // different lengths move at the same pace rather than the short one
+  // whipping round. Multiply the whole thing with --lw-ask-row-speed:
+  // 2 for half speed again, 0.5 to double it.
+  static chipRowSecondsPerItem = 15;
+
   static chipsPerRow = 10;
   static chipsPerRowShort = 5;
 
@@ -3195,7 +3201,7 @@ export class LwAiSearch extends LitElement {
       if (this._isPanel) {
         return html`
           <div class="suggested suggested--chips ${hiddenClass}">
-            <p class="suggested-label">Suggested Queries</p>
+            <p class="suggested-label">People are searching for</p>
             <div class="suggested-chips">${questions.map(chip)}</div>
           </div>`;
       }
@@ -3210,7 +3216,7 @@ export class LwAiSearch extends LitElement {
 
       return html`
         <div class="suggested suggested--chips ${hiddenClass}">
-          <p class="suggested-label">Suggested Queries</p>
+          <p class="suggested-label">People are searching for</p>
           <div class="suggested-rows">
             ${rows.map((row, r) => {
               // Two copies is the minimum for a loop; _syncChipRows raises
@@ -3223,7 +3229,7 @@ export class LwAiSearch extends LitElement {
               return html`
                 <div class="suggested-marquee ${r % 2 === 0 ? 'is-ltr' : 'is-rtl'}"
                      style=${[
-                       `--lw-row-duration: ${row.items.length * 5}s`,
+                       `--lw-row-duration: calc(${row.items.length * LwAiSearch.chipRowSecondsPerItem}s * var(--lw-ask-row-speed, 1))`,
                        `--lw-row-shift: calc(-100% / ${copies})`,
                      ].join(';')}>
                   <div class="suggested-track" data-copies=${copies}>
