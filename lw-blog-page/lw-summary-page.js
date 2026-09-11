@@ -614,7 +614,7 @@ export class LwSummaryPage extends LitElement {
     .further-reading {
       display: block;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      font-size: 16px;
+      font-size: 24px;
       font-weight: 700;
       color: #1a1a1a;
       margin: 8px 0 16px;

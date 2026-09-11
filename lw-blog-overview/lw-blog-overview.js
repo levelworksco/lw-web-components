@@ -150,7 +150,7 @@ export class LwBlogOverview extends LitElement {
     }
 
     h1 {
-      font-size: 16px;
+      font-size: 24px;
       font-weight: 700;
       font-family: var(--lw-ai-results-heading-font, inherit);
       color: var(--lw-ai-results-heading-color, #1a1a1a);
