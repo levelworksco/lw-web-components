@@ -83,11 +83,13 @@ const DEFAULT_AI_THEME = {
       color: '#1A1A1A',
       hoverColor: '#555555',
     },
+    // Body copy: the AI Answer paragraphs, the blog excerpts under
+    // Further Reading, and the result count beside them.
     bodyText: {
       fontFamily: 'Inter, sans-serif',
-      color: '#9AA1A8',
+      color: '#303037',
     },
-    chip: { backgroundColor: '#FEF3EB', color: '#F58635' },
+    chip: { backgroundColor: '#FEF3EB', color: '#303037' },
     lineColor: '#E5E5E5',
   },
 };
@@ -384,7 +386,7 @@ import '../lw-blog-overview/lw-blog-overview.js';
 //   search-index  (String)  index to search, default "all"
 //   semantic-ratio(Number)  0–1 keyword/semantic blend, default 0.5
 //   search-placeholder (String) modal input placeholder
-//   overview-heading    (String) overview section title, "Overview"
+//   overview-heading    (String) overview section title, "AI Answer"
 //   overview-citations  (String) 'none' | 'number' | 'chip' | 'link'
 //   overview-paragraphs (Array)  fallback paragraphs for
 //                                <lw-blog-overview>, used only when the
@@ -488,6 +490,12 @@ export class LwAiSearch extends LitElement {
   // Search-page cards are large, so only the first four fit the row. Chips
   // wrap freely, so they take everything the backend sends, up to 40 --
   // anything beyond that stops reading as a cloud and buries the results.
+  // Chips on the full page are laid out in scrolling rows: ten to a row,
+  // or five when that is all there is, so a short list still makes two
+  // rows travelling in opposite directions rather than one lonely one.
+  static chipsPerRow = 10;
+  static chipsPerRowShort = 5;
+
   static maxCardQuestions = 4;
   static maxChipQuestions = 40;
 
@@ -542,6 +550,7 @@ export class LwAiSearch extends LitElement {
     _backendQuestions: { state: true },
     _barMode:      { state: true },
     _barMinimized: { state: true },
+    _chipRowCopies: { state: true },
     barMode:       { type: String, attribute: 'bar-mode' },
     barPlaceholder:{ type: String, attribute: 'bar-placeholder' },
   };
@@ -1483,6 +1492,63 @@ export class LwAiSearch extends LitElement {
       margin: 0 auto;
     }
 
+    /* ── Travelling chip rows (full page) ──
+       Each row carries its questions twice so the reset at -50% lands on
+       an identical frame, and alternate rows run in opposite directions.
+       Full-bleed out of the hero's 960px, since the travel only reads
+       when the row is wider than the text above it. */
+    .suggested-rows {
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .suggested-marquee {
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 80px,
+                          #000 calc(100% - 80px), transparent);
+              mask-image: linear-gradient(90deg, transparent, #000 80px,
+                          #000 calc(100% - 80px), transparent);
+    }
+
+    .suggested-track {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: max-content;
+      animation: lw-row-scroll var(--lw-row-duration, 50s) linear infinite;
+    }
+
+    /* Travels exactly one copy of the questions, whatever number of copies
+       the row needed to cover the screen, so the reset is invisible. */
+    @keyframes lw-row-scroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(var(--lw-row-shift, -50%)); }
+    }
+
+    /* lw-bar-scroll runs 0 -> -50%, which reads right to left; the first
+       row and every other one after it plays that backwards. */
+    .suggested-marquee.is-ltr .suggested-track { animation-direction: reverse; }
+
+    /* The gap belongs between chips, not after the last one, or it shows
+       up as a seam at the join. */
+    .suggested-track > .suggested-chip:last-child { margin-right: 0; }
+
+    /* Stop under the pointer so a chip can actually be clicked. */
+    .suggested-marquee:hover .suggested-track,
+    .suggested-marquee:focus-within .suggested-track {
+      animation-play-state: paused;
+    }
+
+    .suggested-rows .suggested-chip { flex: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .suggested-track { animation: none; }
+      .suggested-marquee { overflow-x: auto; }
+    }
+
     .suggested-chip {
       appearance: none;
       /* Search Page › Card drives the chips; Widget › Questions styles
@@ -1775,7 +1841,7 @@ export class LwAiSearch extends LitElement {
     this.theme            = {};
     this._backendTheme    = {};
     this._backendQuestions = [];
-    this.overviewHeading    = 'Overview';
+    this.overviewHeading    = 'AI Answer';
     this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
     this.modalTop          = '';
@@ -1806,6 +1872,10 @@ export class LwAiSearch extends LitElement {
     this.barPlaceholder = 'Ask a question to get instant AI answer';
     this._barMode       = '';
     this._barMinimized  = false;
+    // One entry per travelling chip row: how many times its questions are
+    // repeated so a single copy always spans the viewport. Measured after
+    // render, because it depends on how wide the questions turn out to be.
+    this._chipRowCopies = [];
     this.btnSubtext = '';
     this.label      = 'Ask our blog';
     this.open       = false;
@@ -1965,6 +2035,7 @@ export class LwAiSearch extends LitElement {
     // After every render, so the reserved space tracks the bar's height
     // through mode switches, minimizing, and position changes.
     this._syncBarSpace();
+    this._syncChipRows();
     if (changedProperties.has('theme')) {
       Promise.all(themeFontFamilies(this._resolvedTheme).map(loadGoogleFont));
     }
@@ -2420,6 +2491,38 @@ export class LwAiSearch extends LitElement {
       this._barSpaceObserver = new ResizeObserver(() => this._syncBarSpace());
       this._barSpaceObserver.observe(wrap);
     }
+  }
+
+  /**
+   * A row loops seamlessly only while one copy of its questions is at
+   * least as wide as the row itself -- otherwise the translate runs past
+   * the end of the content and a gap travels through. Short rows are
+   * repeated until they cover the screen; the shift is always exactly one
+   * copy, so the reset lands on an identical frame either way.
+   */
+  _syncChipRows() {
+    const marquees = this.shadowRoot?.querySelectorAll('.suggested-marquee');
+    if (!marquees || !marquees.length) {
+      if (this._chipRowCopies.length) this._chipRowCopies = [];
+      return;
+    }
+
+    const next = [];
+    let changed = false;
+    marquees.forEach((marquee, r) => {
+      const track = marquee.querySelector('.suggested-track');
+      const have  = Number(track?.dataset.copies) || 2;
+      const width = marquee.clientWidth;
+      const copy  = track ? track.scrollWidth / have : 0;
+      if (!track || !width || copy < 1) { next[r] = have; return; }
+      // One spare copy beyond what covers the row, so the trailing edge
+      // is never on screen at the moment of the reset.
+      const need = Math.max(2, Math.ceil(width / copy) + 1);
+      next[r] = need;
+      if (need !== have) changed = true;
+    });
+
+    if (changed) this._chipRowCopies = next;
   }
 
   /** Hand the page back the padding it had before the bar reserved any. */
@@ -3064,13 +3167,53 @@ export class LwAiSearch extends LitElement {
     const hiddenClass = this._showFeatures ? '' : 'is-hidden';
 
     if (style === 'chips') {
+      const chip = (question, index) => html`
+        <button class="suggested-chip"
+                @click=${() => this._onCardClick(question, index)}>${question}</button>`;
+
+      // The panel is too narrow for travelling rows, so it keeps the
+      // wrapped cloud; the full page gets the rows.
+      if (this._isPanel) {
+        return html`
+          <div class="suggested suggested--chips ${hiddenClass}">
+            <p class="suggested-label">Suggested Queries</p>
+            <div class="suggested-chips">${questions.map(chip)}</div>
+          </div>`;
+      }
+
+      const perRow = questions.length > LwAiSearch.chipsPerRow
+        ? LwAiSearch.chipsPerRow
+        : LwAiSearch.chipsPerRowShort;
+      const rows = [];
+      for (let i = 0; i < questions.length; i += perRow) {
+        rows.push({ items: questions.slice(i, i + perRow), offset: i });
+      }
+
       return html`
         <div class="suggested suggested--chips ${hiddenClass}">
           <p class="suggested-label">Suggested Queries</p>
-          <div class="suggested-chips">
-            ${questions.map((question, index) => html`
-              <button class="suggested-chip"
-                      @click=${() => this._onCardClick(question, index)}>${question}</button>`)}
+          <div class="suggested-rows">
+            ${rows.map((row, r) => {
+              // Two copies is the minimum for a loop; _syncChipRows raises
+              // it when one copy is narrower than the screen, which is what
+              // would otherwise leave a gap travelling through the row.
+              const copies = Math.max(2, this._chipRowCopies[r] || 2);
+              const ghost = (question, index) => html`
+                <button class="suggested-chip" tabindex="-1" aria-hidden="true"
+                        @click=${() => this._onCardClick(question, index)}>${question}</button>`;
+              return html`
+                <div class="suggested-marquee ${r % 2 === 0 ? 'is-ltr' : 'is-rtl'}"
+                     style=${[
+                       `--lw-row-duration: ${row.items.length * 5}s`,
+                       `--lw-row-shift: calc(-100% / ${copies})`,
+                     ].join(';')}>
+                  <div class="suggested-track" data-copies=${copies}>
+                    ${row.items.map((question, i) => chip(question, row.offset + i))}
+                    ${Array.from({ length: copies - 1 }, () =>
+                        row.items.map((question, i) => ghost(question, row.offset + i)))}
+                  </div>
+                </div>`;
+            })}
           </div>
         </div>`;
     }
