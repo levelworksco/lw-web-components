@@ -1167,11 +1167,18 @@ export class LwAiSearch extends LitElement {
       overflow: hidden;
     }
 
-    #ai-search-overlay.as-panel #ai-search-modal {
+    /* The panel itself never scrolls: it is a column with a fixed head
+       (logo, title, search field) and one scrolling region below --
+       the questions, or the results once a search has run. Scrolling the
+       whole panel instead would carry the search field off the top. */
+    #ai-search-overlay.as-panel #ai-search-modal,
+    #ai-search-overlay.as-panel #ai-search-modal.post-commit {
       width: 100%;
       height: 100%;
       margin-top: 0;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       padding: 56px 0 32px;
       border-left: 1px solid rgba(20, 20, 26, 0.10);
       box-shadow: -8px 0 30px rgba(20, 20, 26, 0.10);
@@ -1183,7 +1190,28 @@ export class LwAiSearch extends LitElement {
 
     /* Everything inside was laid out for a 960px hero; at panel width it
        needs the space back. */
-    #ai-search-overlay.as-panel .hero { padding: 18px 16px 8px; }
+    #ai-search-overlay.as-panel .hero {
+      padding: 18px 16px 8px;
+      /* takes the room left under the head and hands it to .suggested */
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* The head stays put; only what follows it moves. */
+    #ai-search-overlay.as-panel .hero h1,
+    #ai-search-overlay.as-panel .hero > p,
+    #ai-search-overlay.as-panel .search-bar { flex: none; }
+
+    #ai-search-overlay.as-panel .suggested,
+    #ai-search-overlay.as-panel .modal-results {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
     #ai-search-overlay.as-panel .hero h1 { font-size: 20px; }
     #ai-search-overlay.as-panel .hero > p { margin-bottom: 18px; font-size: 12.5px; }
     #ai-search-overlay.as-panel .search-input-wrapper { max-width: 100%; height: 40px; }
@@ -1918,13 +1946,7 @@ export class LwAiSearch extends LitElement {
     if (this.modalOpen) this._teardownModal();
     this._barSpaceObserver?.disconnect();
     this._barSpaceObserver = null;
-    if (this._barSpace != null) {
-      document.body.style.removeProperty('padding-bottom');
-      if (this._barSpace[0]) {
-        document.body.style.setProperty('padding-bottom', this._barSpace[0], this._barSpace[1]);
-      }
-      this._barSpace = null;
-    }
+    this._releaseBarSpace();
     clearTimeout(this._debounceTimer);
     this._abortController?.abort();
     this._themeAbortController?.abort();
@@ -2345,29 +2367,30 @@ export class LwAiSearch extends LitElement {
     const body = document.body;
     if (!body) return;
 
-    const wrap = this.shadowRoot?.querySelector('.bar-wrap');
-    if (!this._isBar || this._inline || !wrap) {
-      if (this._barSpace != null) {
-        body.style.removeProperty('padding-bottom');
-        if (this._barSpace[0]) {
-          body.style.setProperty('padding-bottom', this._barSpace[0], this._barSpace[1]);
-        }
-        this._barSpace = null;
-      }
-      this._barSpaceObserver?.disconnect();
-      this._barSpaceObserver = null;
-      return;
-    }
+    const wrap    = this.shadowRoot?.querySelector('.bar-wrap');
+    const inBar   = this._isBar && !this._inline && !!wrap;
+    const bar     = this.shadowRoot?.querySelector('.bar');
+    const tab     = this.shadowRoot?.querySelector('.bar-toggle');
+    const visible = el => el && el.getBoundingClientRect().height > 0;
 
     // Minimized, the strip is display:none and only the tab shows, so the
-    // reserved height follows whichever is on screen.
-    const bar = this.shadowRoot.querySelector('.bar');
-    const tab = this.shadowRoot.querySelector('.bar-toggle');
-    const visible = el => el && el.getBoundingClientRect().height > 0;
-    const height = Math.ceil(
+    // reserved height follows whichever is on screen. While the search is
+    // open both are hidden and the height is zero.
+    const height = !inBar ? 0 : Math.ceil(
       visible(bar) ? bar.getBoundingClientRect().height
                    : (visible(tab) ? tab.getBoundingClientRect().height : 0));
-    if (!height) return;
+
+    if (!height) {
+      // Nothing is on screen to clear, so the page gets its own padding
+      // back -- otherwise the gap the bar left behind stays at the foot of
+      // the page while the search covers it.
+      this._releaseBarSpace();
+      if (!inBar) {
+        this._barSpaceObserver?.disconnect();
+        this._barSpaceObserver = null;
+      }
+      return;
+    }
 
     // Remember what the site had before the first write, never after --
     // value and priority both, so a theme's own !important survives.
@@ -2389,6 +2412,17 @@ export class LwAiSearch extends LitElement {
       this._barSpaceObserver = new ResizeObserver(() => this._syncBarSpace());
       this._barSpaceObserver.observe(wrap);
     }
+  }
+
+  /** Hand the page back the padding it had before the bar reserved any. */
+  _releaseBarSpace() {
+    if (this._barSpace == null) return;
+    const body = document.body;
+    body.style.removeProperty('padding-bottom');
+    if (this._barSpace[0]) {
+      body.style.setProperty('padding-bottom', this._barSpace[0], this._barSpace[1]);
+    }
+    this._barSpace = null;
   }
 
   _onWindowResize = () => this._syncBarSpace();
