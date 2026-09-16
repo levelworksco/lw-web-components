@@ -1922,7 +1922,7 @@ export class LwAiSearch extends LitElement {
     this._backendTheme    = {};
     this._backendQuestions = [];
     this.overviewHeading    = 'AI Answer';
-    this.overviewCitations  = 'none';
+    this.overviewCitations  = 'link';
     this.overviewParagraphs = [];
     this.modalTop          = '';
     this.href       = '';

@@ -41,7 +41,11 @@ function injectGlobalStyles() {
       border: 1px solid #e5e5e5;
       border-radius: 10px;
       box-shadow: 0 8px 24px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
-      z-index: 9999;
+      /* The card is appended to document.body, so it has to clear whatever
+         the host page -- or a modal embedding this component -- stacks above
+         it. <lw-ai-search> lifts its own host to 2147483000 while the search
+         is open, which left the card painting behind it. */
+      z-index: var(--lw-bov-card-z, 2147483600);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       font-size: 13px;
       color: #3c3c3c;
@@ -235,12 +239,13 @@ export class LwBlogOverview extends LitElement {
       top: -1px;
       color: #555;
       cursor: pointer;
-      transition: background 0.12s, border-color 0.12s;
+      /* an <a> now, so its underline and visited colour have to go */
+      text-decoration: none;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
       flex-shrink: 0;
-      z-index: 0;
     }
-    .citation-link.is-open,
-    .citation-link:hover {
+    .citation-link:hover,
+    .citation-link:focus-visible {
       background: #e8e8e8;
       border-color: #bbb;
       color: #222;
@@ -305,12 +310,9 @@ export class LwBlogOverview extends LitElement {
           const article = JSON.parse(el.dataset.article);
           this._attachHoverCard(el, [article]);
         });
-      } else if (mode === 'link') {
-        this.shadowRoot.querySelectorAll('.citation-link[data-articles]').forEach(el => {
-          const articles = JSON.parse(el.dataset.articles);
-          if (articles.length) this._attachHoverCard(el, articles);
-        });
       }
+      // 'link' mode is deliberately inert — the icon is a plain link to the
+      // top source, with no hover card.
     }
   }
 
@@ -409,6 +411,19 @@ export class LwBlogOverview extends LitElement {
     return map;
   }
 
+  // Link mode opens the first source behind the answer. When that article has
+  // no external url of its own the bare '#' href would just reload the page, so
+  // the default is cancelled and the host told to navigate instead.
+  _onCitationLinkClick(e, article) {
+    if (article?.url && article.url !== '#') return;
+    e.preventDefault();
+    this.dispatchEvent(new CustomEvent('citation-click', {
+      detail: { article },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   _renderCitation(citation, mode, articleIndex) {
     if (mode === 'none' || !citation) return nothing;
 
@@ -427,20 +442,28 @@ export class LwBlogOverview extends LitElement {
       })}`;
     }
 
+    // Link mode is a single anchor to the top-ranked source — no hover card,
+    // it only acts on click.
     if (mode === 'link') {
+      // `||` not `??` — an article can carry url: '', which must still fall
+      // back rather than render a broken/empty href.
+      const top = citation.articles?.[0] ?? {};
+      const external = top.url && top.url !== '#';
       return html`
-        <span
+        <a
           class="citation-link"
-          data-articles=${JSON.stringify(citation.articles)}
-          role="button"
-          tabindex="0"
-          title="View sources"
+          href=${top.url || '#'}
+          target=${external ? '_blank' : nothing}
+          rel=${external ? 'noopener noreferrer' : nothing}
+          title=${top.title ? `Source: ${top.title}` : 'View source'}
+          aria-label=${`Source: ${top.title || 'view article'}`}
+          @click=${e => this._onCitationLinkClick(e, top)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
-        </span>
+        </a>
       `;
     }
 
