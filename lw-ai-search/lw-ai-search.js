@@ -1951,7 +1951,7 @@ export class LwAiSearch extends LitElement {
     this._backendQuestions = [];
     this._backendCitationsStyle = null;
     this.overviewHeading    = 'AI Answer';
-    this.overviewCitations  = 'link';
+    this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
     this.modalTop          = '';
     this.href       = '';
@@ -3600,6 +3600,7 @@ export class LwAiSearch extends LitElement {
                 heading=${this.overviewHeading}
                 display-citations=${this._resolvedCitations}
                 .paragraphs=${this._overview}
+                @citation-click=${this._onCitationClick}
               ></lw-blog-overview>
               <h3 class="further-reading">Further Reading</h3>` : ''}
 
@@ -3675,6 +3676,18 @@ export class LwAiSearch extends LitElement {
     const p = e.detail?.post;
     if (!p) return;
     if (p.url) window.location.assign(p.url);
+  }
+
+  // <lw-blog-overview>'s link-mode citation-click: fires when the cited
+  // article has no real URL of its own (see its _onCitationLinkClick).
+  // Falls back to the top-ranked Further Reading hit, opened in a new tab
+  // — same source _mapAnswerToParagraphs cites first, and the same "open,
+  // don't navigate away from the modal" behaviour _onPostClick gives every
+  // other result link.
+  _onCitationClick() {
+    const hit = this._summaryHits?.[0];
+    const url = hit?.canonicalUrl || hit?.url || '';
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   /**
