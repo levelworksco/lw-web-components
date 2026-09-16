@@ -75,11 +75,15 @@ export class LwBlogListItem extends LitElement {
       margin-top: 0;
       margin-bottom: 0.7rem;
       cursor: pointer;
-      transition: color 0.15s;
       font-family: var(--pl-title-font-family, 'Inter', sans-serif);
     }
-    .list-title:hover {
-      color: var(--lw-ai-results-title-hover-color, var(--pl-title-hover-color, #555));
+    /* Hover marks the title the way a link is marked: an underline under
+       the text alone. The colour stays put -- shifting a heading's colour
+       on hover read as the text changing rather than as something to
+       click, and it fought with whatever title colour the site had set. */
+    .list-title:hover .list-title-text {
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
 
     .list-excerpt {
