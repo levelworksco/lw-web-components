@@ -195,6 +195,22 @@ function normalizeWidgetPosition(value) {
   return WIDGET_POSITIONS.has(v) ? v : DEFAULT_WIDGET_POSITION;
 }
 
+/**
+ * Widget Styling Config › citationsStyle, as returned by GET
+ * /api/v1/widget-styling-configs/{index} — "none" | "chip" | "number" |
+ * "link", the same values <lw-blog-overview>'s display-citations takes.
+ * Returns null, not a default, for anything missing/unrecognised, so the
+ * caller can tell "no value from the backend" apart from an explicit
+ * "none" and fall back to the overview-citations attribute (see
+ * _resolvedCitations).
+ */
+const CITATIONS_STYLES = new Set(['none', 'chip', 'number', 'link']);
+
+function normalizeCitationsStyle(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  return CITATIONS_STYLES.has(v) ? v : null;
+}
+
 function isUnsetThemeValue(value) {
   return value == null || (typeof value === 'string' && !value.trim());
 }
@@ -372,12 +388,15 @@ import '../lw-blog-overview/lw-blog-overview.js';
 // independent copies: a change to one does not reach the other.
 //
 // A search now makes exactly one request: POST {search-base}/api/v1/search/
-// {search-index}/summary/stream. It returns both the AI overview and the
-// hits used for Further Reading, so the plain POST /api/v1/search/{index}
+// {search-index}/summary (non-streaming, for the time being — see
+// _fetchSummary). It returns both the per-section AI overview and the hits
+// used for Further Reading, so the plain POST /api/v1/search/{index}
 // endpoint (_fetchResults / _endpoint below) is disabled — its call sites
 // are commented out, not removed, in case per-page results search comes
 // back. Search-as-you-type is disabled the same way; Enter is the only
-// trigger (see _onModalInput / _commitSearch).
+// trigger (see _onModalInput / _commitSearch). The streaming
+// /summary/stream endpoint (_fetchSummaryStream) is UNUSED right now but
+// DO NOT REMOVE — see its own docs.
 //
 // ATTRIBUTES — search API (same attribute names as <lw-ai-search>):
 //   search-base   (String)  API origin — set it on the tag, no default.
@@ -387,7 +406,10 @@ import '../lw-blog-overview/lw-blog-overview.js';
 //   semantic-ratio(Number)  0–1 keyword/semantic blend, default 0.5
 //   search-placeholder (String) modal input placeholder
 //   overview-heading    (String) overview section title, "AI Answer"
-//   overview-citations  (String) 'none' | 'number' | 'chip' | 'link'
+//   overview-citations  (String) 'none' | 'number' | 'chip' | 'link',
+//                                default 'none' — overridden by Widget
+//                                Styling Config's citationsStyle when the
+//                                backend returns one (see _resolvedCitations)
 //   overview-paragraphs (Array)  fallback paragraphs for
 //                                <lw-blog-overview>, used only when the
 //                                summary stream returns nothing
@@ -552,8 +574,14 @@ export class LwAiSearch extends LitElement {
     _inputValue:   { state: true },
     _summaryText:  { state: true },
     _summaryHits:  { state: true },
+    // Per-section overview + citations from the non-streaming /summary
+    // endpoint (see _fetchSummary / _mapAnswerToParagraphs).
+    _summaryParagraphs: { state: true },
     _backendTheme: { state: true },
     _backendQuestions: { state: true },
+    // Widget Styling Config › citationsStyle from the same backend config
+    // response — see _resolvedCitations.
+    _backendCitationsStyle: { state: true },
     _barMode:      { state: true },
     _barMinimized: { state: true },
     _chipRowCopies: { state: true },
@@ -1921,6 +1949,7 @@ export class LwAiSearch extends LitElement {
     this.theme            = {};
     this._backendTheme    = {};
     this._backendQuestions = [];
+    this._backendCitationsStyle = null;
     this.overviewHeading    = 'AI Answer';
     this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
@@ -1980,6 +2009,7 @@ export class LwAiSearch extends LitElement {
     this._inputValue   = '';
     this._summaryText  = '';
     this._summaryHits  = [];
+    this._summaryParagraphs = [];
     // non-reactive search state
     this._page            = 1;
     this._hasMore         = true;
@@ -2003,7 +2033,7 @@ export class LwAiSearch extends LitElement {
 
   /**
    * Widget Styling Config › maxSearchResultsToDisplay — caps how many of
-   * the /summary/stream hits the Further Reading list shows. Frontend-only:
+   * the /summary hits the Further Reading list shows. Frontend-only:
    * it slices what's already in `_results`, it never changes what's asked
    * for or received from the backend. Unset/invalid means no cap.
    */
@@ -2025,6 +2055,15 @@ export class LwAiSearch extends LitElement {
     // for when none are configured or the request fails.
     if (this._backendQuestions?.length) return this._backendQuestions;
     return this._resolvedTheme.suggestedQuestions.items || [];
+  }
+
+  /**
+   * Widget Styling Config › citationsStyle wins over the overview-citations
+   * attribute/default, same precedence _suggestedQuestions gives the
+   * backend-managed queries over the theme fallback.
+   */
+  get _resolvedCitations() {
+    return this._backendCitationsStyle ?? this.overviewCitations;
   }
 
   get _suggestedQuestionsStyle() {
@@ -2272,12 +2311,14 @@ export class LwAiSearch extends LitElement {
     if (!this.searchKey) {
       this._themeAbortController = null;
       this._backendTheme = {};
+      this._backendCitationsStyle = null;
       return null;
     }
 
     const controller = new AbortController();
     this._themeAbortController = controller;
     this._backendTheme = {};
+    this._backendCitationsStyle = null;
 
     try {
       const response = await fetch(this._themeEndpoint, {
@@ -2308,6 +2349,9 @@ export class LwAiSearch extends LitElement {
 
       const config = payload.widgetStylingConfig ?? payload.WidgetStylingConfig;
       const nextBackendTheme = config && typeof config === 'object' ? config : {};
+      const nextCitationsStyle = normalizeCitationsStyle(
+        nextBackendTheme.citationsStyle ?? nextBackendTheme.CitationsStyle,
+      );
       const nextResolvedTheme = mergeTheme(
         mergeTheme(DEFAULT_AI_THEME, normalizeTheme(nextBackendTheme)),
         normalizeTheme(this.theme),
@@ -2319,6 +2363,7 @@ export class LwAiSearch extends LitElement {
       if (this._themeAbortController !== controller) return null;
 
       this._backendTheme = nextBackendTheme;
+      this._backendCitationsStyle = nextCitationsStyle;
       this.dispatchEvent(new CustomEvent('lw-ai-theme-loaded', {
         detail: { index: this.searchIndex, theme: this._backendTheme },
         bubbles: true,
@@ -2329,6 +2374,7 @@ export class LwAiSearch extends LitElement {
       if (error.name === 'AbortError' || this._themeAbortController !== controller) return null;
 
       this._backendTheme = {};
+      this._backendCitationsStyle = null;
       this.dispatchEvent(new CustomEvent('lw-ai-theme-error', {
         detail: {
           index: this.searchIndex,
@@ -2877,9 +2923,9 @@ export class LwAiSearch extends LitElement {
     const panel = this._modal;
     if (!panel) return;
     // const nearBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 300;
-    // Pagination disabled along with /api/v1/search/: /summary/stream
-    // returns one batch of hits with no paging, and _hasMore is now
-    // always false after a search (see _handleSseFrame's 'hits' case).
+    // Pagination disabled along with /api/v1/search/: /summary returns one
+    // batch of hits with no paging, and _hasMore is now always false after
+    // a search (see _fetchSummary).
     // if (nearBottom && this._hasMore && !this._loading && this._currentQuery) {
     //   this._page++;
     //   this._fetchResults(this._currentQuery, this._page, { prefetch: true });
@@ -2909,7 +2955,7 @@ export class LwAiSearch extends LitElement {
     // once _searchCommitted was true (see the disabled block in
     // _onModalInput); now that it's off, this is the only path, so it
     // must not lock up after the first query. _fetchSummary already
-    // aborts any in-flight stream, so a rapid re-submit is safe.
+    // aborts any in-flight request, so a rapid re-submit is safe.
     this._loading       = true;
     this._noResults      = false;
     this._resultsReady   = false;
@@ -2920,8 +2966,8 @@ export class LwAiSearch extends LitElement {
     this._showResults     = true;
     this._postCommit      = true;
     // /api/v1/search/{index} disabled for now — every search runs through
-    // /summary/stream only (see _fetchSummary above and _handleSseFrame's
-    // 'hits' case, which now supplies Further Reading too).
+    // /summary only (see _fetchSummary above, which now supplies Further
+    // Reading too). /summary/stream is unused — see _fetchSummaryStream.
     // this._fetchResults(q, 1);
   }
 
@@ -3009,6 +3055,7 @@ export class LwAiSearch extends LitElement {
     this._results      = [];
     this._summaryText  = '';
     this._summaryHits  = [];
+    this._summaryParagraphs = [];
     this._noResults    = false;
     this._metaVisible  = false;
     this._metaHits     = '';
@@ -3017,6 +3064,108 @@ export class LwAiSearch extends LitElement {
     this._showFeatures = true;
   }
 
+  // ── Overview: POST {base}/api/v1/search/{index}/summary ─────────────
+  // Non-streaming. Returns both the per-section overview (answer[]) and
+  // the article hits used as citations, in one response.
+  get _summaryUrl() {
+    const base  = (this.searchBase || '').replace(/\/+$/, '');
+    const index = encodeURIComponent(this.searchIndex || 'all');
+    return `${base}/api/v1/search/${index}/summary`;
+  }
+
+  async _fetchSummary(query) {
+    // One controller per request: rapid typing must not let a stale
+    // response overwrite a newer one.
+    this._summaryAbort?.abort();
+    const ctrl = new AbortController();
+    this._summaryAbort = ctrl;
+
+    try {
+      const res = await fetch(this._summaryUrl, {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY':    this.searchKey,
+        },
+        body: JSON.stringify({
+          query,
+          filter:        {},
+          limit:         LwAiSearch.pageLimit,
+          semanticRatio: Number(this.semanticRatio),
+        }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`Summary failed: ${res.status}`);
+      const data = await res.json();
+      if (this._summaryAbort !== ctrl) return;   // superseded
+
+      // Apply even when empty — a genuine "no results" answer.
+      this._summaryHits  = Array.isArray(data?.hits) ? data.hits : [];
+      this._results       = this._summaryHits;
+      this._hasMore        = false;
+      this._resultsReady   = true;
+      this._noResults      = this._results.length === 0;
+      this._noResultsMsg   = 'No results found';
+      this._loading        = false;
+      // answer can be null (LLM skipped due to quota) — hits still render
+      // via the list, just with no overview section.
+      this._summaryParagraphs = this._mapAnswerToParagraphs(data?.answer, this._summaryHits);
+      this.dispatchEvent(new CustomEvent('lw-ask-results', {
+        detail:   { query: this._currentQuery, page: 1, results: this._results, total: this._results.length },
+        bubbles:  true,
+        composed: true,
+      }));
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      // The summary endpoint fails occasionally; leave whatever is
+      // already rendered rather than blanking the section.
+      console.error('<lw-ai-search> summary:', err);
+      if (!this._resultsReady) {
+        this._noResults    = true;
+        this._noResultsMsg = 'Something went wrong. Please try again.';
+        this._resultsReady = true;
+      }
+      this._loading = false;
+    }
+  }
+
+  // Maps the /summary response's per-section `answer` + top-level `hits`
+  // into <lw-blog-overview>'s paragraphs shape: [{ text, citation?: {
+  // label, articles } }]. `answer: null` (LLM skipped) yields no overview
+  // paragraphs. A section with no citations (e.g. a canned "no relevant
+  // information" message) yields a paragraph with no `citation` key.
+  _mapAnswerToParagraphs(answer, hits) {
+    if (!Array.isArray(answer)) return [];
+
+    return answer.map(section => {
+      const citations = Array.isArray(section.citations) ? section.citations : [];
+      if (!citations.length) return { text: section.text };
+
+      const articles = citations
+        .map(i => hits[i])
+        .filter(Boolean)
+        .map(h => ({
+          title:   h.title   ?? '',
+          excerpt: h.summary ?? h.bodySummary ?? h.body ?? '',
+          image:   (h.imageUrl ?? '').replace(/^\/\//, 'https://'),
+          // Same protocol-relative fix the image above gets: a crawled
+          // `//host/path` url left raw resolves against the demo host,
+          // opening the wrong page. `||` not `??` — hits can also carry
+          // an empty url string.
+          url: (h.canonicalUrl || h.url || '').replace(/^\/\//, 'https://') || '#',
+        }));
+      if (!articles.length) return { text: section.text };
+
+      return { text: section.text, citation: { label: `Sources (${articles.length})`, articles } };
+    });
+  }
+
+  // UNUSED right now but DO NOT REMOVE — the /summary/stream path. /summary
+  // (non-streaming, see _fetchSummary above) replaced this as the active
+  // call in _commitSearch() because it now returns part-level citations
+  // that /summary/stream does not. If streaming is reintroduced later,
+  // this is the starting point.
+  //
   // ── Overview: POST {base}/api/v1/search/{index}/summary/stream ──────
   // Server-sent events; one call returns both the overview text and the
   // article hits used as citations.
@@ -3026,7 +3175,7 @@ export class LwAiSearch extends LitElement {
     return `${base}/api/v1/search/${index}/summary/stream`;
   }
 
-  async _fetchSummary(query) {
+  async _fetchSummaryStream(query) {
     // One controller per request: rapid typing must not let a stale
     // stream overwrite a newer one.
     this._summaryAbort?.abort();
@@ -3084,6 +3233,9 @@ export class LwAiSearch extends LitElement {
   }
 
   /**
+   * UNUSED right now but DO NOT REMOVE — see _fetchSummaryStream. Only
+   * called from there.
+   *
    * One SSE frame. `hits` carries the citation articles and starts a new
    * answer, `token` appends (never replaces), `error` is an in-band
    * failure that arrives after a 200 and so cannot be caught by res.ok.
@@ -3129,31 +3281,20 @@ export class LwAiSearch extends LitElement {
   }
 
   /**
-   * Paragraphs for <lw-blog-overview>, computed at render time rather
-   * than stored: hits and token frames race, so citations have to be
-   * re-attached on every render to land whichever arrives second.
+   * Paragraphs for <lw-blog-overview>. `_summaryParagraphs` — the
+   * per-section answer + citations from /summary (see _fetchSummary /
+   * _mapAnswerToParagraphs) — wins; the overview-paragraphs attribute is
+   * the fallback for when the summary endpoint returns nothing.
    */
   get _overview() {
-    const paras = this._summaryText
-      ? this._mapToParagraphs(this._summaryText)
-      : this._toParagraphs(this.overviewParagraphs);
-    if (!paras.length) return [];
-
-    const articles = (this._summaryHits ?? []).slice(0, 10).map(h => ({
-      title:   h.title   ?? '',
-      excerpt: h.summary ?? h.body ?? '',
-      // Protocol-relative CDN URLs (//cdn/…) break on HTTPS pages.
-      image:   (h.imageUrl ?? '').replace(/^\/\//, 'https://'),
-      url:     h.canonicalUrl || h.url || '#',
-    }));
-    if (!articles.length) return paras;
-
-    return paras.map((para, i) => i === paras.length - 1
-      ? { ...para, citation: { label: `Sources (${articles.length})`, articles } }
-      : para);
+    if (this._summaryParagraphs.length) return this._summaryParagraphs;
+    return this._toParagraphs(this.overviewParagraphs);
   }
 
   /**
+   * UNUSED right now but DO NOT REMOVE — see _fetchSummaryStream. Only
+   * called from _handleSseFrame's `token` event handling.
+   *
    * Split the answer into paragraphs: blank lines when the model used
    * them, sentence boundaries otherwise — this API usually returns one
    * unbroken block.
@@ -3192,6 +3333,7 @@ export class LwAiSearch extends LitElement {
     this._results      = [];
     this._summaryText  = '';
     this._summaryHits  = [];
+    this._summaryParagraphs = [];
     this._noResults    = false;
     this._resultsReady = false;
     this._metaVisible  = false;
@@ -3456,7 +3598,7 @@ export class LwAiSearch extends LitElement {
               <lw-blog-overview
                 class="modal-overview"
                 heading=${this.overviewHeading}
-                display-citations=${this.overviewCitations}
+                display-citations=${this._resolvedCitations}
                 .paragraphs=${this._overview}
               ></lw-blog-overview>
               <h3 class="further-reading">Further Reading</h3>` : ''}
