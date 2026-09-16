@@ -3156,8 +3156,18 @@ export class LwAiSearch extends LitElement {
         }));
       if (!articles.length) return { text: section.text };
 
-      return { text: section.text, citation: { label: `Sources (${articles.length})`, articles } };
+      return { text: section.text, citation: { label: this._citationLabel(articles), articles } };
     });
+  }
+
+  // Citation pill label: the lead article's full title, plus
+  // "+m" for the remaining (m = total - 1) sources, e.g. "Understanding X +2".
+  // Falls back to "Source" only when the title itself is null/undefined.
+  _citationLabel(articles) {
+    const title = articles[0]?.title;
+    const displayTitle = title == null ? 'Source' : title;
+    const more = articles.length - 1;
+    return more > 0 ? `${displayTitle} +${more}` : displayTitle;
   }
 
   // UNUSED right now but DO NOT REMOVE — the /summary/stream path. /summary
