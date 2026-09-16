@@ -1276,9 +1276,12 @@ export class LwAiSearch extends LitElement {
     }
     #ai-search-overlay.as-panel .hero h1 { font-size: 20px; }
     #ai-search-overlay.as-panel .hero > p { margin-bottom: 18px; font-size: 12.5px; }
-    #ai-search-overlay.as-panel .search-input-wrapper { max-width: 100%; height: 40px; }
-    #ai-search-overlay.as-panel .client-logo { top: 16px; width: 130px; height: 30px; }
-    #ai-search-overlay.as-panel #ai-search-close { top: 6px; right: 10px; font-size: 30px; }
+    #ai-search-overlay.as-panel .search-input-wrapper { max-width: 100%; --lw-field-pad: 8px; }
+    /* The switcher and the close button sit in the same corner at panel
+       width as at page width, so the centred logo gets what is left
+       between them rather than running underneath. */
+    #ai-search-overlay.as-panel .client-logo { top: 16px; width: 110px; height: 30px; }
+    #ai-search-overlay.as-panel .client-logo-placeholder { width: 100%; height: 100%; }
     #ai-search-overlay.as-panel .modal-results { max-width: 100%; padding: 0 16px; }
     #ai-search-overlay.as-panel .suggested { margin-top: 22px; }
     #ai-search-overlay.as-panel .suggested-cards { grid-template-columns: 1fr; gap: 8px; }
@@ -1348,7 +1351,13 @@ export class LwAiSearch extends LitElement {
     /* Layout switcher: both options are on screen, the active one lit,
        so it reads as a choice rather than a button that does something
        unnamed. Neutral greys, so it sits on a light or a dark panel
-       without being told which. */
+       without being told which. Full page on the left, side panel on
+       the right, matching where each one puts the search on screen.
+
+       It keeps one size and one place in both layouts -- it is measured
+       from the modal, which fills the panel as well as the page -- so
+       switching does not move the control the user just pressed. The
+       close button beside it is left alone for the same reason. */
     #ai-search-display {
       position: absolute;
       top: 20px;
@@ -1385,13 +1394,63 @@ export class LwAiSearch extends LitElement {
       outline-offset: -2px;
     }
 
-    #ai-search-overlay.as-panel #ai-search-display { top: 8px; right: 40px; padding: 2px; }
-    #ai-search-overlay.as-panel .display-option { padding: 4px 7px; }
-    #ai-search-overlay.as-panel .display-option svg { width: 14px; height: 14px; }
-
     @media (max-width: 560px) {
       #ai-search-display { display: none; }
     }
+
+    /* ── Modal head ──
+       The logo, the layout switcher and the close button, held above the
+       modal rather than inside it. In full page the modal is the thing
+       that scrolls: a head inside it went away with the first screenful,
+       leaving a reader halfway down an answer with no visible way out.
+       Fixed to the viewport -- offset by modal-top, so it still clears a
+       site header left showing above the modal -- it stays put while the
+       answer moves under it.
+
+       The box itself is a zero-height rail at the top: the three controls
+       keep the absolute offsets they always had, now measured from here.
+       It does not take clicks, only its controls do, so the page behind
+       is still reachable where the head is empty. */
+    .modal-head {
+      position: fixed;
+      top: var(--lw-ask-modal-top, 0px);
+      left: 0;
+      right: 0;
+      height: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .modal-head > * { pointer-events: auto; }
+
+    /* A short fade in the modal's own colour, so text passing underneath
+       reaches the controls already faint instead of colliding with them. */
+    .modal-head::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      /* Solid as far down as the tallest control reaches (the logo ends
+         at 72px), then out by 120px. */
+      height: 120px;
+      background: linear-gradient(
+        to bottom,
+        var(--lw-ai-page-bg, var(--lw-ask-modal-bg, #f4f4f4)) 0,
+        var(--lw-ai-page-bg, var(--lw-ask-modal-bg, #f4f4f4)) 76px,
+        transparent 120px);
+      pointer-events: none;
+    }
+
+    /* The panel does not scroll -- it has its own fixed head and one
+       scrolling region below -- so there is nothing to fade, and nothing
+       to stay clear of. It rides in on the panel's own slide instead. */
+    #ai-search-overlay.as-panel .modal-head {
+      position: absolute;
+      transform: translateX(101%);
+      transition: transform 0.28s ease;
+    }
+    #ai-search-overlay.as-panel.open .modal-head { transform: translateX(0); }
+    #ai-search-overlay.as-panel .modal-head::before { display: none; }
 
     /* Brand logo shown at the top of the search modal. */
     .client-logo {
@@ -1463,11 +1522,24 @@ export class LwAiSearch extends LitElement {
     }
 
     .search-input-wrapper {
+      /* One line by default, two when the question needs them -- long
+         questions used to run off the end of the field, out of sight of
+         the person still typing. The field grows to the second line and
+         stops there; a third scrolls inside it, so the questions below
+         never get pushed off a phone screen.
+
+         The two numbers the height is built from live here, so the panel
+         (a shorter field) only has to change the padding. The padding is
+         a pixel short of round because the 1px border below counts into
+         the height as well: 22 + 13 + 13 + 2 = the 50px this field has
+         always been. */
+      --lw-field-line: 22px;
+      --lw-field-pad: 13px;
       display: flex;
       align-items: center;
       width: 100%;
       max-width: 520px;
-      height: 50px;
+      min-height: calc(var(--lw-field-line) + var(--lw-field-pad) * 2 + 2px);
       margin: 0 auto;
       padding: 0 16px;
       border: 1px solid #e5e5e5;
@@ -1486,7 +1558,7 @@ export class LwAiSearch extends LitElement {
       opacity: 0.55;
     }
 
-    .search-input-wrapper input {
+    .search-input-wrapper textarea {
       flex: 1;
       min-width: 0;
       border: none;
@@ -1494,10 +1566,19 @@ export class LwAiSearch extends LitElement {
       background: transparent;
       font-family: inherit;
       font-size: 15px;
-      padding: 14px 7px;
+      line-height: var(--lw-field-line);
+      padding: var(--lw-field-pad) 7px;
       color: var(--lw-ai-search-color, #0f172a);
+      /* A textarea, only because an input cannot wrap. It is still a
+         single-line field in every other way: no resize handle, no
+         newlines (Enter searches), and its height is set from its
+         content by _autoSizeInput. */
+      display: block;
+      resize: none;
+      overflow: hidden;
+      max-height: calc(var(--lw-field-line) * 2 + var(--lw-field-pad) * 2);
     }
-    .search-input-wrapper input::placeholder {
+    .search-input-wrapper textarea::placeholder {
       color: var(--lw-ai-search-placeholder, #9aa1a8);
     }
 
@@ -2177,6 +2258,7 @@ export class LwAiSearch extends LitElement {
     // through mode switches, minimizing, and position changes.
     this._syncBarSpace();
     this._syncChipRows();
+    if (this.modalOpen) this._autoSizeInput();
     if (changedProperties.has('theme')) {
       Promise.all(themeFontFamilies(this._resolvedTheme).map(loadGoogleFont));
     }
@@ -2668,6 +2750,18 @@ export class LwAiSearch extends LitElement {
       body.style.setProperty('padding-bottom', next, 'important');
     }
 
+    // The padding clears the bar for anything in normal flow, but not for
+    // a section that asked for the whole viewport: 100vh is 100vh whatever
+    // is fixed over it, so such a section keeps its last strip underneath
+    // the bar. Nothing in CSS can shorten it from out here, so the height
+    // is published instead and the page can subtract it itself:
+    //
+    //   .hero { min-height: calc(100vh - var(--lw-ask-bar-space, 0px)); }
+    //
+    // It is set on <html>, not on this element, so the page can read it
+    // from anywhere, and it is removed again with the padding below.
+    document.documentElement.style.setProperty('--lw-ask-bar-space', next);
+
     if (!this._barSpaceObserver && window.ResizeObserver) {
       this._barSpaceObserver = new ResizeObserver(() => this._syncBarSpace());
       this._barSpaceObserver.observe(wrap);
@@ -2708,6 +2802,7 @@ export class LwAiSearch extends LitElement {
 
   /** Hand the page back the padding it had before the bar reserved any. */
   _releaseBarSpace() {
+    document.documentElement.style.removeProperty('--lw-ask-bar-space');
     if (this._barSpace == null) return;
     const body = document.body;
     body.style.removeProperty('padding-bottom');
@@ -2884,9 +2979,31 @@ export class LwAiSearch extends LitElement {
     if (e.target === e.currentTarget) this.closeSearch();
   }
 
+  /**
+   * Fit the field to what is in it: one line, two, then a scroll. Called
+   * after input and after every render, since the value can also arrive
+   * from a suggested question or from the bar.
+   */
+  _autoSizeInput() {
+    const el = this._input;
+    if (!el || el.tagName !== 'TEXTAREA') return;
+    // Height has to go back to content size before measuring, or
+    // scrollHeight only ever reports the height set last time.
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+    // max-height caps the growth; past that the text scrolls instead.
+    el.style.overflowY = el.scrollHeight > el.clientHeight ? 'auto' : 'hidden';
+  }
+
   _onModalInput(e) {
+    // Pasted text can carry newlines, which a one-line field has no way
+    // to show; they become spaces rather than hidden lines.
+    if (e.target.value.includes('\n')) {
+      e.target.value = e.target.value.replace(/\s*\n+\s*/g, ' ');
+    }
     const value = e.target.value;
     this._inputValue = value;
+    this._autoSizeInput();
     clearTimeout(this._debounceTimer);
     const trimmed = value.trim();
     this._currentQuery = trimmed;
@@ -2904,7 +3021,8 @@ export class LwAiSearch extends LitElement {
   }
 
   _onModalKeydown(e) {
-    if (e.key === 'Enter') this._commitSearch();
+    // Enter searches; it never puts a line break in the field.
+    if (e.key === 'Enter') { e.preventDefault(); this._commitSearch(); }
   }
 
   _onModalClear() {
@@ -3536,38 +3654,6 @@ export class LwAiSearch extends LitElement {
              aria-label=${`${this._resolvedTheme.text.header.text} search`}
              @scroll=${this._onModalScroll}>
 
-          ${(() => {
-            const panel = this._isPanel;
-            const option = (mode, icon, label) => html`
-              <button class="display-option"
-                      aria-pressed=${(mode === 'panel') === panel ? 'true' : 'false'}
-                      aria-label=${label}
-                      title=${label}
-                      @click=${() => this._setDisplayMode(mode)}>${icon}</button>`;
-            return html`
-              <div id="ai-search-display" role="group" aria-label="Search layout">
-                ${option('panel', LwAiSearch.panelIcon, 'Side panel')}
-                ${option('fullpage', LwAiSearch.expandIcon, 'Full page')}
-              </div>`;
-          })()}
-
-          <button id="ai-search-close" aria-label="Close search"
-                  @click=${this.closeSearch}>&times;</button>
-
-          <div class="client-logo" aria-label="Logo">
-            ${this._resolvedTheme.logo.image
-              ? html`<img src=${this._resolvedTheme.logo.image} alt="Logo" />`
-              : html`
-                <div class="client-logo-placeholder" role="img" aria-label="Logo">
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                    <circle cx="8" cy="9" r="1.5" fill="currentColor"/>
-                    <path d="m5 17 4.5-4.5a1.5 1.5 0 0 1 2.12 0L14 14.88l1.38-1.38a1.5 1.5 0 0 1 2.12 0L19 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  <span>Logo</span>
-                </div>`}
-          </div>
-
           <div class="hero">
             <h1>${this._resolvedTheme.text.header.text}</h1>
             <p>${this._resolvedTheme.text.subtitle.text}</p>
@@ -3580,11 +3666,12 @@ export class LwAiSearch extends LitElement {
                   <path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" opacity="0.8"/>
                 </svg>
-                <input type="text" id="searchInput" autocomplete="off"
-                       placeholder=${this._resolvedTheme.text.search.placeholder || this.searchPlaceholder}
-                       .value=${this._inputValue}
-                       @input=${this._onModalInput}
-                       @keydown=${this._onModalKeydown} />
+                <textarea id="searchInput" rows="1" autocomplete="off"
+                          enterkeyhint="search" spellcheck="false"
+                          placeholder=${this._resolvedTheme.text.search.placeholder || this.searchPlaceholder}
+                          .value=${this._inputValue}
+                          @input=${this._onModalInput}
+                          @keydown=${this._onModalKeydown}></textarea>
                 <button class="clear-btn ${this._inputValue ? '' : 'is-hidden'}"
                         aria-label="Clear search"
                         @click=${this._onModalClear}>
@@ -3635,9 +3722,47 @@ export class LwAiSearch extends LitElement {
           <div class="modal-loader ${this._loading ? '' : 'is-hidden'}">Searching...</div>
         </div>
 
-        <!-- Outside #ai-search-modal on purpose: in panel mode the modal
-             is transformed, which would make it the containing block for
-             this badge and scroll it away with the results. -->
+        <!-- Outside #ai-search-modal on purpose. In full page the modal
+             is what scrolls, and a head inside it would scroll away with
+             the answer, taking the close button with it. Out here it
+             floats over the modal instead, so the way out is always on
+             screen. (In panel mode the modal is also transformed, which
+             would make it the containing block for anything fixed.) -->
+        <div class="modal-head">
+          ${(() => {
+            const panel = this._isPanel;
+            const option = (mode, icon, label) => html`
+              <button class="display-option"
+                      aria-pressed=${(mode === 'panel') === panel ? 'true' : 'false'}
+                      aria-label=${label}
+                      title=${label}
+                      @click=${() => this._setDisplayMode(mode)}>${icon}</button>`;
+            return html`
+              <div id="ai-search-display" role="group" aria-label="Search layout">
+                ${option('fullpage', LwAiSearch.expandIcon, 'Full page')}
+                ${option('panel', LwAiSearch.panelIcon, 'Side panel')}
+              </div>`;
+          })()}
+
+          <button id="ai-search-close" aria-label="Close search"
+                  @click=${this.closeSearch}>&times;</button>
+
+          <div class="client-logo" aria-label="Logo">
+            ${this._resolvedTheme.logo.image
+              ? html`<img src=${this._resolvedTheme.logo.image} alt="Logo" />`
+              : html`
+                <div class="client-logo-placeholder" role="img" aria-label="Logo">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="8" cy="9" r="1.5" fill="currentColor"/>
+                    <path d="m5 17 4.5-4.5a1.5 1.5 0 0 1 2.12 0L14 14.88l1.38-1.38a1.5 1.5 0 0 1 2.12 0L19 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Logo</span>
+                </div>`}
+          </div>
+        </div>
+
+        <!-- Same reason as the head above. -->
         <div class="powered-by">
           ${LwAiSearch.poweredByBadge}
         </div>
