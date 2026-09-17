@@ -75,11 +75,15 @@ export class LwBlogListItem extends LitElement {
       margin-top: 0;
       margin-bottom: 0.7rem;
       cursor: pointer;
-      transition: color 0.15s;
       font-family: var(--pl-title-font-family, 'Inter', sans-serif);
     }
-    .list-title:hover {
-      color: var(--lw-ai-results-title-hover-color, var(--pl-title-hover-color, #555));
+    /* Hover marks the title the way a link is marked: an underline under
+       the text alone. The colour stays put -- shifting a heading's colour
+       on hover read as the text changing rather than as something to
+       click, and it fought with whatever title colour the site had set. */
+    .list-title:hover .list-title-text {
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
 
     .list-excerpt {
@@ -88,7 +92,10 @@ export class LwBlogListItem extends LitElement {
       font-family: var(--pl-excerpt-font-family, inherit);
       line-height: 1.55;
       margin-bottom: 1rem;
-      display: -webkit-box;
+      /* A host that is short of width -- the right panel, where a row is
+         a narrow column -- can drop the excerpt with
+         --pl-excerpt-display: none and keep the title and the meta. */
+      display: var(--pl-excerpt-display, -webkit-box);
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
