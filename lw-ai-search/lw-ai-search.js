@@ -2035,7 +2035,9 @@ export class LwAiSearch extends LitElement {
    * Widget Styling Config › maxSearchResultsToDisplay — caps how many of
    * the /summary hits the Further Reading list shows. Frontend-only:
    * it slices what's already in `_results`, it never changes what's asked
-   * for or received from the backend. Unset/invalid means no cap.
+   * for or received from the backend. Unset/invalid means no cap, and so
+   * does a negative value (e.g. -1) — that's the backend's own sentinel
+   * for "no limit", not a malformed config.
    */
   get _maxSearchResultsToDisplay() {
     const raw = this._backendTheme?.maxSearchResultsToDisplay
