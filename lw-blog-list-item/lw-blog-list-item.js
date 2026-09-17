@@ -92,7 +92,10 @@ export class LwBlogListItem extends LitElement {
       font-family: var(--pl-excerpt-font-family, inherit);
       line-height: 1.55;
       margin-bottom: 1rem;
-      display: -webkit-box;
+      /* A host that is short of width -- the right panel, where a row is
+         a narrow column -- can drop the excerpt with
+         --pl-excerpt-display: none and keep the title and the meta. */
+      display: var(--pl-excerpt-display, -webkit-box);
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
