@@ -153,60 +153,6 @@ const BACKEND_LENGTH_FIELDS = new Set([
 ]);
 
 /**
- * #rgb, #rrggbb(aa) or rgb()/rgba() to [r, g, b, a], or null for anything
- * else -- a named colour, a gradient, a colour() function. Callers treat
- * null as "do not judge this" rather than guessing.
- */
-function parseColor(value) {
-  const text = String(value ?? '').trim();
-
-  const hex = /^#([0-9a-f]{3,8})$/i.exec(text);
-  if (hex) {
-    const d = hex[1];
-    // #rgb and #rgba are written a digit per channel
-    const wide = d.length <= 4;
-    const size = wide ? 1 : 2;
-    if (d.length !== (wide ? 3 : 6) && d.length !== (wide ? 4 : 8)) return null;
-    const at = i => {
-      const part = d.substr(i * size, size);
-      return parseInt(wide ? part + part : part, 16);
-    };
-    return [at(0), at(1), at(2), d.length === (wide ? 4 : 8) ? at(3) / 255 : 1];
-  }
-
-  const fn = /^rgba?\(([^)]+)\)/i.exec(text);
-  if (!fn) return null;
-  const parts = fn[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-  const [r, g, b] = parts;
-  return parts.length >= 3 && [r, g, b].every(Number.isFinite)
-    ? [r, g, b, parts.length > 3 ? parts[3] : 1]
-    : null;
-}
-
-function colorLuminance(value) {
-  const rgba = parseColor(value);
-  if (!rgba) return null;
-  const [r, g, b, alpha] = rgba;
-  if (!(alpha > 0)) return null;
-  const channel = c => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  };
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-}
-
-/**
- * WCAG relative luminance, or null when the colour cannot be read.
- */
-/** WCAG contrast ratio, 1 (identical) to 21 (black on white). */
-function contrastRatio(a, b) {
-  const la = colorLuminance(a);
-  const lb = colorLuminance(b);
-  if (la == null || lb == null) return null;
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-}
-
-/**
  * Widget Style is a closed set rather than a free-form theme value: the
  * admin panel writes exactly "icon" or "icon-text", and a freshly created
  * config row comes back as "". Empty, missing, or unrecognised values must
@@ -562,13 +508,6 @@ export class LwAiSearch extends LitElement {
 
   // The fixed state shows this many; the scrolling one shows them all.
   static barFixedQuestions = 4;
-
-  // Below this contrast ratio the active bar icon is treated as lost in
-  // the bar behind it and repainted. WCAG asks 3:1 of an icon that has to
-  // be made out at all; this is deliberately lower, because the bar also
-  // dims the other two icons to 0.45, so "which one is lit" survives a
-  // weaker difference than reading a glyph cold would need.
-  static barModeMinContrast = 2;
 
   // Search-page cards are large, so only the first four fit the row. Chips
   // wrap freely, so they take everything the backend sends, up to 40 --
@@ -975,22 +914,21 @@ export class LwAiSearch extends LitElement {
          once both come from the theme. */
       color: var(--lw-ask-bar-mode-color,
              var(--lw-ai-widget-icon-color, rgba(17, 17, 17, 0.9)));
-      opacity: var(--lw-ask-bar-mode-opacity, 0.45);
+      opacity: var(--lw-ask-bar-mode-opacity, 0.8);
       cursor: pointer;
       transition: color 0.15s, opacity 0.15s;
     }
     .bar-mode svg { width: 18px; height: 18px; }
-    .bar-mode:hover { opacity: var(--lw-ask-bar-mode-opacity-hover, 0.75); }
+    .bar-mode:hover { opacity: var(--lw-ask-bar-mode-opacity-hover, 0.9); }
 
-    /* The active state takes the button colour, so the bar's controls
-       follow Widget › Button like the CTA beside them -- except on a site
-       that paints its button and its bar the same, where that would draw
-       the lit icon in the colour it is standing on. _barModeActiveColor
-       publishes --lw-ask-bar-mode-active in that case, and nothing at all
-       when the theme's own colour reads fine. */
+    /* Every icon in the bar is Widget › Icon Colour; the lit one is the
+       one at full strength, the others a step back. Colour cannot do that
+       job here -- the Button colour it used to take is the bar's own
+       colour on a site that paints both the same, and the icon vanished. */
     .bar-mode[aria-pressed="true"] {
       color: var(--lw-ask-bar-mode-active,
-             var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A)));
+             var(--lw-ask-bar-mode-color,
+             var(--lw-ai-widget-icon-color, rgba(17, 17, 17, 0.9))));
       opacity: 1;
     }
     .bar-mode:focus-visible {
@@ -2229,31 +2167,6 @@ export class LwAiSearch extends LitElement {
       : 'card';
   }
 
-  /**
-   * A colour for the lit bar icon when the Button colour it would
-   * normally take cannot be seen against the bar -- a site that paints
-   * its button and its bar the same, which is common enough, was drawing
-   * the selected icon in the colour it was standing on. Falls back to the
-   * bar's own icon colour (what the other two icons use, so the site has
-   * already made that legible), and to plain black or white if even that
-   * is lost in the bar. Empty when the theme's own colour reads fine,
-   * which leaves the CSS to use Button colour as before.
-   */
-  get _barModeActiveColor() {
-    const t = this._resolvedTheme;
-    const background = t.widget.backgroundColor;
-    const min = LwAiSearch.barModeMinContrast;
-
-    const active = contrastRatio(t.button.backgroundColor, background);
-    if (active == null || active >= min) return '';
-
-    const icon = contrastRatio(t.widget.iconColor, background);
-    if (icon != null && icon >= min) return t.widget.iconColor;
-
-    const luminance = colorLuminance(background);
-    return luminance == null ? '' : (luminance > 0.4 ? '#111111' : '#ffffff');
-  }
-
   get _themeStyle() {
     const t = this._resolvedTheme;
     const questionFont = fontFamilyStack(t.questions.fontFamily);
@@ -2271,12 +2184,6 @@ export class LwAiSearch extends LitElement {
       `--lw-ai-widget-icon-color: ${t.widget.iconColor}`,
       `--lw-ai-widget-bg: ${t.widget.backgroundColor}`,
       `--lw-ai-button-bg: ${t.button.backgroundColor}`,
-      // Only when the Button colour would be lost in the bar -- see
-      // _barModeActiveColor. Left out otherwise, so the CSS falls
-      // through to Button colour as it always has.
-      ...(this._barModeActiveColor
-        ? [`--lw-ask-bar-mode-active: ${this._barModeActiveColor}`]
-        : []),
       `--lw-ai-button-color: ${t.button.textColor}`,
       `--lw-ai-button-outline: ${t.button.outlineColor}`,
       `--lw-ai-button-outline-width: ${typeof t.button.outlineThickness === 'number' ? `${t.button.outlineThickness}px` : t.button.outlineThickness}`,
