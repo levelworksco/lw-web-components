@@ -914,12 +914,12 @@ export class LwAiSearch extends LitElement {
          once both come from the theme. */
       color: var(--lw-ask-bar-mode-color,
              var(--lw-ai-widget-icon-color, rgba(17, 17, 17, 0.9)));
-      opacity: var(--lw-ask-bar-mode-opacity, 0.8);
+      opacity: var(--lw-ask-bar-mode-opacity, 0.5);
       cursor: pointer;
       transition: color 0.15s, opacity 0.15s;
     }
     .bar-mode svg { width: 18px; height: 18px; }
-    .bar-mode:hover { opacity: var(--lw-ask-bar-mode-opacity-hover, 0.9); }
+    .bar-mode:hover { opacity: var(--lw-ask-bar-mode-opacity-hover, 0.75); }
 
     /* Every icon in the bar is Widget › Icon Colour; the lit one is the
        one at full strength, the others a step back. Colour cannot do that
