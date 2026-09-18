@@ -557,6 +557,7 @@ export class LwAiSearch extends LitElement {
     // the site's own name, so it is never turned on for them.
     feedback:      { type: Boolean },
     feedbackCta:   { type: String, attribute: 'feedback-cta' },
+    feedbackCtaPage: { type: String, attribute: 'feedback-cta-page' },
     feedbackUrl:   { type: String, attribute: 'feedback-url' },
     // A hosted form to show instead of the built-in one -- a Formbricks
     // link survey, say. Passed straight through to the card.
@@ -1313,22 +1314,68 @@ export class LwAiSearch extends LitElement {
     #ai-search-overlay.as-panel .suggested-chips { max-width: 100%; }
     #ai-search-overlay.as-panel .further-reading { margin: 18px 0 10px; font-size: 15px; }
 
-    /* The feedback card is put in the panel's bottom corner, over the
-       results rather than after them: it is asked once the answer is
-       there to be judged, and it is dismissable, so it must not push
-       the reading out of the way to ask. */
+    /* The card is fixed to the foot of the panel, the full width of it,
+       and rises over the results rather than pushing them aside -- it is
+       asked for, and dismissable, so it must not move the reading. It
+       covers the button that opened it and the badge beside it: they are
+       the way in, and there is no use for either while the form is up. */
+    /* ── Full page ──
+       A small card of its own in the bottom corner, above the badge,
+       rather than a bar across the foot: the full page has no foot to
+       put one on, and a strip across a whole screen would read as part
+       of the site rather than as an offer from the search. */
+    .page-cta {
+      position: fixed;
+      right: 24px;
+      bottom: 74px;
+      z-index: 3;
+      appearance: none;
+      border: none;
+      width: 132px;
+      padding: 10px 12px 12px;
+      border-radius: 10px;
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
+      color: var(--lw-ai-button-color, #ffffff);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(16, 18, 27, 0.18);
+    }
+    .page-cta:hover { filter: brightness(0.95); }
+    .page-cta:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+    .page-cta svg { display: block; width: 14px; height: 14px; margin-bottom: 6px; }
+
+    /* The page behind the sheet steps back while the form is up, and
+       takes a click to close -- the same way out as the card's own ×. */
+    .feedback-scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      background: rgba(16, 18, 27, 0.45);
+    }
+
     .feedback-card {
       position: absolute;
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
+      left: 0;
+      right: 0;
+      bottom: 0;
       z-index: 3;
-      --lw-fb-max-height: calc(100% - 24px);
+      /* square where it meets the panel's edges, round where it does not */
+      --lw-fb-radius: 16px 16px 0 0;
+      --lw-fb-shadow: 0 -10px 30px rgba(16, 18, 27, 0.16);
+      --lw-fb-max-height: calc(100% - 40px);
     }
-    /* opened from the button, it sits above it rather than over it */
-    #ai-search-overlay.as-panel.has-cta .feedback-card {
-      bottom: calc(var(--lw-ask-cta-height, 46px) + 46px);
-      --lw-fb-max-height: calc(100% - var(--lw-ask-cta-height, 46px) - 58px);
+
+    /* Full page: the same card, across the foot of the viewport, wide
+       enough for the form to stand in two columns. */
+    #ai-search-overlay:not(.as-panel) .feedback-card {
+      position: fixed;
+      z-index: 4;
+      --lw-fb-radius: 18px 18px 0 0;
+      --lw-fb-max-height: calc(100vh - 80px);
     }
 
     /* the badge is fixed to the viewport in full-page mode, which would
@@ -2145,6 +2192,9 @@ export class LwAiSearch extends LitElement {
     this.searchDisplay = '';
     this.feedback = false;
     this.feedbackCta = 'Transform with DiscoverAI';
+    // The full page has room for a sentence where the panel bar has room
+    // for a name.
+    this.feedbackCtaPage = 'Transform the way your team searches with AI';
     this.feedbackUrl = '';
     // Levelworks own lead form, the same one for every site that turns
     // the card on. Point feedback-embed elsewhere, or at nothing, to use
@@ -3087,6 +3137,12 @@ export class LwAiSearch extends LitElement {
     return this.feedback && this._isPanel;
   }
 
+  // The full page's own way in: a corner card instead of a bar, and out
+  // of the way once the form it opens is up.
+  get _showFeedbackPageCta() {
+    return this.feedback && !this._isPanel && !this._feedbackOpen;
+  }
+
   _openFeedback = () => {
     this._feedbackOpen = true;
     // A second opening starts at the question again, not wherever the
@@ -3911,8 +3967,12 @@ export class LwAiSearch extends LitElement {
           </div>
         </div>
 
+        ${this._feedbackOpen && !this._isPanel ? html`
+          <div class="feedback-scrim" @click=${this._onFeedbackDismiss}></div>` : ''}
+
         ${this._feedbackOpen ? html`
           <lw-feedback-card class="feedback-card" open
+            ?wide=${!this._isPanel}
             submit-url=${this.feedbackUrl}
             embed-url=${this.feedbackEmbed}
             @feedback-response=${this._onFeedbackResponse}
@@ -3932,6 +3992,15 @@ export class LwAiSearch extends LitElement {
               <path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2"
                     stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
+          </button>` : ''}
+
+        ${this._showFeedbackPageCta ? html`
+          <button class="page-cta" @click=${this._openFeedback}>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>${this.feedbackCtaPage}</span>
           </button>` : ''}
       </div>
     `;

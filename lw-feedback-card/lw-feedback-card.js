@@ -15,6 +15,8 @@ import { LitElement, html, css }
 //
 // PROPERTIES:
 //   open          (Boolean, reflected) — shown at all
+//   wide          (Boolean, reflected) — two-column form, for a card
+//                             across the foot of a full page
 //   heading       (String)  — the question at the top
 //   note          (String)  — the line under it
 //   positiveLabel (String)  — the 👍 button, attribute positive-label
@@ -47,6 +49,9 @@ const STEPS = ['prompt', 'negative', 'positive', 'embed', 'done'];
 export class LwFeedbackCard extends LitElement {
   static properties = {
     open:          { type: Boolean, reflect: true },
+    // Laid out for a wide card -- the form in two columns -- rather than
+    // the narrow column a side panel gives it.
+    wide:          { type: Boolean, reflect: true },
     heading:       { type: String },
     note:          { type: String },
     positiveLabel: { type: String, attribute: 'positive-label' },
@@ -82,8 +87,9 @@ export class LwFeedbackCard extends LitElement {
       position: relative;
       background: #ffffff;
       border-radius: var(--lw-fb-radius);
-      box-shadow: 0 10px 30px rgba(16, 18, 27, 0.18);
-      padding: 16px 16px 14px;
+      /* pointing down by default, up when the card is pinned to a foot */
+      box-shadow: var(--lw-fb-shadow, 0 10px 30px rgba(16, 18, 27, 0.18));
+      padding: var(--lw-fb-padding, 18px 18px 16px);
       /* Long enough to need it, the form scrolls inside the card rather
          than growing past whatever corner it was put in. */
       max-height: var(--lw-fb-max-height, 70vh);
@@ -231,6 +237,67 @@ export class LwFeedbackCard extends LitElement {
     .done .note { margin-bottom: 14px; }
     .done .submit { width: auto; padding: 8px 22px; }
 
+    /* ── Wide: the card across the foot of a full page ──
+       Three short fields in a column, the message beside them, and the
+       button under it on the right. Narrow, none of this applies and the
+       fields stay in the one column they are written in. */
+    :host([wide]) .card {
+      padding: var(--lw-fb-padding, 22px 24px 24px);
+    }
+    :host([wide]) h3 {
+      margin: 0 0 20px;
+      font-size: 17px;
+      text-align: center;
+    }
+    :host([wide]) .form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        'name    message'
+        'slot    message'
+        'email   submit';
+      gap: 0 30px;
+      max-width: var(--lw-fb-wide-max, 760px);
+      margin: 0 auto;
+    }
+    :host([wide]) .f-name    { grid-area: name; }
+    :host([wide]) .f-slot    { grid-area: slot; }
+    :host([wide]) .f-email   { grid-area: email; }
+    :host([wide]) .f-message { grid-area: message; display: flex; flex-direction: column; }
+    :host([wide]) .f-message textarea { flex: 1 1 auto; }
+    :host([wide]) .f-submit {
+      grid-area: submit;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+    }
+    :host([wide]) .f-submit .submit { width: auto; padding: 10px 26px; }
+
+    /* The prompt and the note read better centred on a wide card, where a
+       left-aligned line would trail off across the page. */
+    :host([wide]) .note { text-align: center; }
+    :host([wide]) .choices {
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    /* A hosted form centres its own card, so across the whole width of a
+       page it ends up marooned in white. Held to the width the rest of
+       the wide card uses, and given enough height that the survey does
+       not scroll inside its own frame. */
+    :host([wide]) .embed {
+      max-width: var(--lw-fb-wide-max, 760px);
+      margin: 0 auto;
+      height: var(--lw-fb-embed-height, min(68vh, 620px));
+    }
+
+    @media (max-width: 720px) {
+      /* No room for two columns; back to the single one. */
+      :host([wide]) .form { grid-template-columns: 1fr; grid-template-areas: none; }
+      :host([wide]) .f-name, :host([wide]) .f-slot, :host([wide]) .f-email,
+      :host([wide]) .f-message, :host([wide]) .f-submit { grid-area: auto; }
+      :host([wide]) .f-submit .submit { width: 100%; }
+    }
+
     /* ── A hosted form in place of ours ── */
     .embed {
       display: block;
@@ -248,6 +315,7 @@ export class LwFeedbackCard extends LitElement {
   constructor() {
     super();
     this.open = false;
+    this.wide = false;
     this.heading = 'What do you think so far?';
     this.note = 'If DiscoverAI feels useful, continue to see how you can add it to your website.';
     this.positiveLabel = 'This is useful';
@@ -391,37 +459,47 @@ export class LwFeedbackCard extends LitElement {
       </button>`;
   }
 
+  /**
+   * The order the fields are written in is the order they are read in a
+   * narrow card. Wide, the CSS puts the three short ones in one column
+   * and the message beside them -- hence the class on each field, which
+   * is the only thing that layout has to go on.
+   */
   _renderPositive() {
     const bad = id => this._invalid.includes(id) ? 'is-invalid' : '';
     return html`
       <h3>Let's discuss the next steps</h3>
-      <div class="field">
-        <label for="name">Full name <span class="req">*</span></label>
-        <input id="name" class=${bad('name')} type="text"
-               autocomplete="name" placeholder="Acme Corp" />
-      </div>
-      <div class="field">
-        <label for="email">Email <span class="req">*</span></label>
-        <input id="email" class=${bad('email')} type="email"
-               autocomplete="email" placeholder="you@company.com" />
-        ${this._invalid.includes('email')
-          ? html`<p class="error">A working email, so we can reach you.</p>` : ''}
-      </div>
-      <div class="field">
-        <label for="slot">Preferred meeting slot <span class="req">*</span></label>
-        <select id="slot" class=${bad('slot')}>
-          <option value="">Select a time</option>
-          ${(this.slots ?? []).map(s => html`<option value=${s}>${s}</option>`)}
-        </select>
-      </div>
-      <div class="field">
-        <label for="message">Message <span class="opt">(optional)</span></label>
-        <textarea id="message" placeholder="Your message..."></textarea>
-      </div>
-      <button class="submit" ?disabled=${this._sending}
-              @click=${() => this._submit('positive')}>
-        ${this._sending ? 'Sending…' : 'Schedule a call'}
-      </button>`;
+      <div class="form">
+        <div class="field f-name">
+          <label for="name">Full name <span class="req">*</span></label>
+          <input id="name" class=${bad('name')} type="text"
+                 autocomplete="name" placeholder="Acme Corp" />
+        </div>
+        <div class="field f-slot">
+          <label for="slot">Preferred meeting slot <span class="req">*</span></label>
+          <select id="slot" class=${bad('slot')}>
+            <option value="">Select a time</option>
+            ${(this.slots ?? []).map(s => html`<option value=${s}>${s}</option>`)}
+          </select>
+        </div>
+        <div class="field f-email">
+          <label for="email">Email <span class="req">*</span></label>
+          <input id="email" class=${bad('email')} type="email"
+                 autocomplete="email" placeholder="you@company.com" />
+          ${this._invalid.includes('email')
+            ? html`<p class="error">A working email, so we can reach you.</p>` : ''}
+        </div>
+        <div class="field f-message">
+          <label for="message">Message <span class="opt">(optional)</span></label>
+          <textarea id="message" placeholder="Your message..."></textarea>
+        </div>
+        <div class="f-submit">
+          <button class="submit" ?disabled=${this._sending}
+                  @click=${() => this._submit('positive')}>
+            ${this._sending ? 'Sending…' : 'Schedule a call'}
+          </button>
+        </div>
+      </div>`;
   }
 
   /**
