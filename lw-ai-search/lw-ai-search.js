@@ -1,6 +1,7 @@
 import { LitElement, html, css }
   from 'https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js';
 import '../lw-blog-list/lw-blog-list.js';
+import '../lw-feedback-card/lw-feedback-card.js';
 
 const DEFAULT_AI_THEME = {
   widget: {
@@ -552,6 +553,14 @@ export class LwAiSearch extends LitElement {
     btnLabel:   { type: String,  attribute: 'btn-label'   },
     widgetStyle:{ type: String,  attribute: 'widget-style' },
     searchDisplay:{ type: String, attribute: 'search-display' },
+    // Off unless a site asks for it: the card speaks to the reader in
+    // the site's own name, so it is never turned on for them.
+    feedback:      { type: Boolean },
+    feedbackCta:   { type: String, attribute: 'feedback-cta' },
+    feedbackUrl:   { type: String, attribute: 'feedback-url' },
+    // A hosted form to show instead of the built-in one -- a Formbricks
+    // link survey, say. Passed straight through to the card.
+    feedbackEmbed: { type: String, attribute: 'feedback-embed' },
     btnSubtext: { type: String,  attribute: 'btn-subtext' },
     label:      { type: String                           },
     open:       { type: Boolean, reflect: true           },
@@ -564,6 +573,7 @@ export class LwAiSearch extends LitElement {
     _showResults:  { state: true },
     _resultsReady: { state: true },
     _postCommit:   { state: true },
+    _feedbackOpen: { state: true },
     _results:      { state: true },
     _loading:      { state: true },
     _noResults:    { state: true },
@@ -1303,6 +1313,24 @@ export class LwAiSearch extends LitElement {
     #ai-search-overlay.as-panel .suggested-chips { max-width: 100%; }
     #ai-search-overlay.as-panel .further-reading { margin: 18px 0 10px; font-size: 15px; }
 
+    /* The feedback card is put in the panel's bottom corner, over the
+       results rather than after them: it is asked once the answer is
+       there to be judged, and it is dismissable, so it must not push
+       the reading out of the way to ask. */
+    .feedback-card {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 3;
+      --lw-fb-max-height: calc(100% - 24px);
+    }
+    /* opened from the button, it sits above it rather than over it */
+    #ai-search-overlay.as-panel.has-cta .feedback-card {
+      bottom: calc(var(--lw-ask-cta-height, 46px) + 46px);
+      --lw-fb-max-height: calc(100% - var(--lw-ask-cta-height, 46px) - 58px);
+    }
+
     /* the badge is fixed to the viewport in full-page mode, which would
        leave it out on the squeezed page rather than inside the panel */
     /* Anchored to the panel, not to the scrolling results inside it. */
@@ -1310,6 +1338,51 @@ export class LwAiSearch extends LitElement {
       position: absolute;
       right: 16px;
       bottom: 12px;
+    }
+
+    /* With the call to action there, the panel ends in a footer instead:
+       the badge centred on a bar of its own, the button under it. Both
+       are pinned to the panel, so they stay put while the results move. */
+    #ai-search-overlay.as-panel.has-cta .powered-by {
+      left: 0;
+      right: 0;
+      bottom: var(--lw-ask-cta-height, 46px);
+      display: flex;
+      justify-content: center;
+      padding: 9px 0;
+      background: var(--lw-ai-page-bg, var(--lw-ask-modal-bg, #f4f4f4));
+      border-top: 1px solid rgba(20, 20, 26, 0.08);
+    }
+
+    .panel-cta {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      appearance: none;
+      border: none;
+      height: var(--lw-ask-cta-height, 46px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--lw-ai-button-bg, var(--lw-ask-accent, #1A1A1A));
+      color: var(--lw-ai-button-color, #ffffff);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .panel-cta:hover { filter: brightness(0.95); }
+    .panel-cta:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+    .panel-cta svg { width: 15px; height: 15px; }
+
+    /* Room for the footer, so the last result is not left under it. */
+    #ai-search-overlay.as-panel.has-cta #ai-search-modal,
+    #ai-search-overlay.as-panel.has-cta #ai-search-modal.post-commit {
+      /* the button, plus the badge row above it */
+      padding-bottom: calc(var(--lw-ask-cta-height, 46px) + 56px);
     }
     #ai-search-overlay.as-panel .powered-by svg,
     #ai-search-overlay.as-panel .powered-by img {
@@ -2070,6 +2143,19 @@ export class LwAiSearch extends LitElement {
     this.btnLabel   = 'Search with AI';
     this.widgetStyle = '';
     this.searchDisplay = '';
+    this.feedback = false;
+    this.feedbackCta = 'Transform with DiscoverAI';
+    this.feedbackUrl = '';
+    // Levelworks own lead form, the same one for every site that turns
+    // the card on. Point feedback-embed elsewhere, or at nothing, to use
+    // the built-in steps instead.
+    //
+    // embed=true is what makes it fit: without it the survey draws its
+    // own page background and scrolls inside the frame, so the Next
+    // button starts out below the fold.
+    this.feedbackEmbed =
+      'https://forms.levelworks.co/s/cmu6m906p001201nvpv3pikb9?embed=true';
+    this._feedbackOpen = false;
     // Which of the three bar states is showing. bar-mode seeds it from
     // the tag; the icon group then owns it for the rest of the session.
     this.barMode        = '';
@@ -2921,6 +3007,9 @@ export class LwAiSearch extends LitElement {
     activeModal = this;
 
     this.modalOpen = true;
+    // A new opening starts from the bar, not mid-form.
+    this._feedbackOpen = false;
+
     // The full-page modal owns the viewport, so the page behind it is
     // locked. The panel leaves the page usable and pushes it aside.
     if (this._isPanel) {
@@ -2988,8 +3077,52 @@ export class LwAiSearch extends LitElement {
     if (activeModal === this) activeModal = null;
   }
 
+  /**
+   * The call to action at the foot of the panel, and the card it opens.
+   * The panel is the only place either belongs: the full page has room
+   * for neither, and a site that has not asked for the card gets no
+   * button offering it.
+   */
+  get _showFeedbackCta() {
+    return this.feedback && this._isPanel;
+  }
+
+  _openFeedback = () => {
+    this._feedbackOpen = true;
+    // A second opening starts at the question again, not wherever the
+    // last one was abandoned.
+    this.updateComplete.then(() =>
+      this.renderRoot?.querySelector('lw-feedback-card')?.reset());
+  };
+
+  /** Passed on under our own name, so the page listens to one element. */
+  _relayFeedback(name, detail) {
+    this.dispatchEvent(new CustomEvent(name, {
+      detail, bubbles: true, composed: true,
+    }));
+  }
+
+  _onFeedbackResponse = e => {
+    this._relayFeedback('lw-ask-feedback-response', {
+      ...e.detail, query: this._currentQuery,
+    });
+  };
+
+  _onFeedbackSubmit = e => {
+    this._relayFeedback('lw-ask-feedback', {
+      ...e.detail, query: this._currentQuery, index: this.searchIndex,
+    });
+  };
+
+  // Both the × and Go back land here: either way the card has had its
+  // turn, and the panel goes back to being the panel -- with the button
+  // still there, so it can be opened again.
+  _onFeedbackDismiss = () => { this._feedbackOpen = false; };
+
   get _input() { return this.renderRoot?.querySelector('#searchInput'); }
   get _modal() { return this.renderRoot?.querySelector('#ai-search-modal'); }
+
+
 
   _onOverlayClick(e) {
     if (e.target === e.currentTarget) this.closeSearch();
@@ -3660,7 +3793,7 @@ export class LwAiSearch extends LitElement {
     const questions = this._suggestedQuestions.slice(0, questionLimit);
     return html`
       <div id="ai-search-overlay"
-           class="${this.modalOpen ? 'open' : ''} ${this._isPanel ? 'as-panel' : ''}"
+           class="${this.modalOpen ? 'open' : ''} ${this._isPanel ? 'as-panel' : ''} ${this._showFeedbackCta ? 'has-cta' : ''}"
            style=${[this._modalTopVar, this._themeStyle].filter(Boolean).join(';')}
            @click=${this._onOverlayClick}>
         <div id="ai-search-modal"
@@ -3778,10 +3911,28 @@ export class LwAiSearch extends LitElement {
           </div>
         </div>
 
+        ${this._feedbackOpen ? html`
+          <lw-feedback-card class="feedback-card" open
+            submit-url=${this.feedbackUrl}
+            embed-url=${this.feedbackEmbed}
+            @feedback-response=${this._onFeedbackResponse}
+            @feedback-submit=${this._onFeedbackSubmit}
+            @feedback-dismiss=${this._onFeedbackDismiss}
+          ></lw-feedback-card>` : ''}
+
         <!-- Same reason as the head above. -->
         <div class="powered-by">
           ${LwAiSearch.poweredByBadge}
         </div>
+
+        ${this._showFeedbackCta ? html`
+          <button class="panel-cta" @click=${this._openFeedback}>
+            <span>${this.feedbackCta}</span>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>` : ''}
       </div>
     `;
   }
