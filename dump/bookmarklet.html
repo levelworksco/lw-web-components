@@ -303,13 +303,26 @@
         freshly pushed change may take a few minutes to show up — pin to a commit SHA
         instead of the branch name if you need the bookmarklet to track an exact revision.
       </p>
+
+      <p class="note">
+        <strong>Copy the code again after a change.</strong> The bookmarklet you saved is a
+        frozen copy of the snippet below, and the snippet carries a dated cache-buster —
+        without recopying it, your browser can keep serving a week-old build of
+        <code>lw-ai-search.js</code> no matter what has been pushed.
+      </p>
     </div>
   </div>
 
   <div id="toast" class="toast">Copied bookmarklet code to clipboard!</div>
 
   <script>
-    const CDN_URL = 'https://cdn.jsdelivr.net/gh/levelworksco/lw-web-components@raj-web-component/lw-ai-search/lw-ai-search.js';
+    const CDN_BASE = 'https://cdn.jsdelivr.net/gh/levelworksco/lw-web-components@raj-web-component/lw-ai-search/lw-ai-search.js';
+
+    // jsDelivr tells browsers to keep this file for a week, so a bookmarklet
+    // saved yesterday keeps running yesterday's build however many times the
+    // branch moves. The stamp changes daily, which is as often as the copied
+    // bookmarklet itself gets refreshed, and jsDelivr ignores the parameter.
+    const CDN_URL = CDN_BASE + '?v=' + new Date().toISOString().slice(0, 10);
 
     function buildSource(key, base, index) {
       return `(() => {
@@ -324,6 +337,10 @@
     el.setAttribute('search-base', ${JSON.stringify(base)});
     el.setAttribute('search-key', ${JSON.stringify(key)});
     el.setAttribute('search-index', ${JSON.stringify(index || 'all')});
+    // The feedback card is opt-in on a customer's own page; on a demo it
+    // is half of what is being demonstrated, so the bookmarklet asks for
+    // it. Drop this line for a bookmarklet that shows the search alone.
+    el.setAttribute('feedback', '');
     document.body.appendChild(el);
   });
 })();`;

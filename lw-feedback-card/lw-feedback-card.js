@@ -13,6 +13,15 @@ import { LitElement, html, css }
 // search panel it was designed for -- so it has no backdrop, no focus
 // trap, and never covers the whole screen. The host positions it.
 //
+// TWO PATHS, BOTH WANTED. In normal use embed-url is set and a hosted
+// survey answers for all of this; the steps below are then the fallback,
+// and they look unused because they are, until the frame does not load --
+// a content policy or a blocker on the reader's side refuses it silently,
+// and a lead captured by our own form beats an empty white box. Kept
+// deliberately: do not strip them as dead code. The cost is that they ask
+// their own questions, so a change to the hosted survey does not reach
+// them.
+//
 // PROPERTIES:
 //   open          (Boolean, reflected) — shown at all
 //   wide          (Boolean, reflected) — two-column form, for a card
