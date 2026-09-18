@@ -553,9 +553,20 @@ export class LwAiSearch extends LitElement {
     btnLabel:   { type: String,  attribute: 'btn-label'   },
     widgetStyle:{ type: String,  attribute: 'widget-style' },
     searchDisplay:{ type: String, attribute: 'search-display' },
-    // Off unless a site asks for it: the card speaks to the reader in
-    // the site's own name, so it is never turned on for them.
-    feedback:      { type: Boolean },
+    // On by default: the card is how a reader of a site running the
+    // widget is offered DiscoverAI, so it belongs wherever the widget
+    // runs rather than only where someone remembered an attribute.
+    //
+    // A plain Boolean would read feedback="false" as true -- any attribute
+    // at all means present -- and "false" is exactly what a site turning
+    // it off would write, so the word is honoured here.
+    feedback: {
+      type: Boolean,
+      converter: {
+        fromAttribute: v => v !== null && v !== 'false' && v !== '0' && v !== 'off',
+        toAttribute: v => (v ? '' : 'false'),
+      },
+    },
     feedbackCta:   { type: String, attribute: 'feedback-cta' },
     feedbackCtaPage: { type: String, attribute: 'feedback-cta-page' },
     feedbackUrl:   { type: String, attribute: 'feedback-url' },
@@ -2190,7 +2201,7 @@ export class LwAiSearch extends LitElement {
     this.btnLabel   = 'Search with AI';
     this.widgetStyle = '';
     this.searchDisplay = '';
-    this.feedback = false;
+    this.feedback = true;
     this.feedbackCta = 'Transform with DiscoverAI';
     // The full page has room for a sentence where the panel bar has room
     // for a name.

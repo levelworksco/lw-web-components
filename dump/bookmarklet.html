@@ -337,9 +337,9 @@
     el.setAttribute('search-base', ${JSON.stringify(base)});
     el.setAttribute('search-key', ${JSON.stringify(key)});
     el.setAttribute('search-index', ${JSON.stringify(index || 'all')});
-    // The feedback card is opt-in on a customer's own page; on a demo it
-    // is half of what is being demonstrated, so the bookmarklet asks for
-    // it. Drop this line for a bookmarklet that shows the search alone.
+    // Says out loud what the element already does -- the card is on by
+    // default. Set it to 'false' for a bookmarklet that shows the search
+    // alone.
     el.setAttribute('feedback', '');
     document.body.appendChild(el);
   });
