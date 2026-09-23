@@ -604,6 +604,10 @@ export class LwAiSearch extends LitElement {
     // Widget Styling Config › citationsStyle from the same backend config
     // response — see _resolvedCitations.
     _backendCitationsStyle: { state: true },
+    // Widget Styling Config › promptType from the same backend config
+    // response — forwarded as-is to /summary and /summary/stream, see
+    // _fetchSummary / _fetchSummaryStream.
+    promptType: { state: true },
     _barMode:      { state: true },
     _barMinimized: { state: true },
     _chipRowCopies: { state: true },
@@ -2176,6 +2180,7 @@ export class LwAiSearch extends LitElement {
     this._backendTheme    = {};
     this._backendQuestions = [];
     this._backendCitationsStyle = null;
+    this.promptType = null;
     this.overviewHeading    = 'AI Answer';
     this.overviewCitations  = 'none';
     this.overviewParagraphs = [];
@@ -2557,6 +2562,7 @@ export class LwAiSearch extends LitElement {
       this._themeAbortController = null;
       this._backendTheme = {};
       this._backendCitationsStyle = null;
+      this.promptType = null;
       return null;
     }
 
@@ -2564,6 +2570,7 @@ export class LwAiSearch extends LitElement {
     this._themeAbortController = controller;
     this._backendTheme = {};
     this._backendCitationsStyle = null;
+    this.promptType = null;
 
     try {
       const response = await fetch(this._themeEndpoint, {
@@ -2597,6 +2604,8 @@ export class LwAiSearch extends LitElement {
       const nextCitationsStyle = normalizeCitationsStyle(
         nextBackendTheme.citationsStyle ?? nextBackendTheme.CitationsStyle,
       );
+      const nextPromptType = payload.promptType ?? payload.PromptType
+        ?? nextBackendTheme.promptType ?? nextBackendTheme.PromptType ?? null;
       const nextResolvedTheme = mergeTheme(
         mergeTheme(DEFAULT_AI_THEME, normalizeTheme(nextBackendTheme)),
         normalizeTheme(this.theme),
@@ -2609,6 +2618,7 @@ export class LwAiSearch extends LitElement {
 
       this._backendTheme = nextBackendTheme;
       this._backendCitationsStyle = nextCitationsStyle;
+      this.promptType = nextPromptType;
       this.dispatchEvent(new CustomEvent('lw-ai-theme-loaded', {
         detail: { index: this.searchIndex, theme: this._backendTheme },
         bubbles: true,
@@ -2620,6 +2630,7 @@ export class LwAiSearch extends LitElement {
 
       this._backendTheme = {};
       this._backendCitationsStyle = null;
+      this.promptType = null;
       this.dispatchEvent(new CustomEvent('lw-ai-theme-error', {
         detail: {
           index: this.searchIndex,
@@ -3426,6 +3437,8 @@ export class LwAiSearch extends LitElement {
           filter:        {},
           limit:         LwAiSearch.pageLimit,
           semanticRatio: Number(this.semanticRatio),
+          // Forwarded as-is from the widget styling config, see refreshTheme.
+          ...(this.promptType != null ? { promptType: this.promptType } : {}),
         }),
         signal: ctrl.signal,
       });
@@ -3539,6 +3552,8 @@ export class LwAiSearch extends LitElement {
           filter:        {},
           limit:         LwAiSearch.pageLimit,
           semanticRatio: Number(this.semanticRatio),
+          // Forwarded as-is from the widget styling config, see refreshTheme.
+          ...(this.promptType != null ? { promptType: this.promptType } : {}),
         }),
         signal: ctrl.signal,
       });
