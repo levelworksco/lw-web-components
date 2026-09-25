@@ -3558,6 +3558,7 @@ export class LwAiSearch extends LitElement {
           filter:        {},
           limit:         LwAiSearch.pageLimit,
           semanticRatio: Number(this.semanticRatio),
+          modelProvider:"vast",
           // Forwarded as-is from the widget styling config, see refreshTheme.
           ...(this.promptType != null ? { promptType: this.promptType } : {}),
         }),
