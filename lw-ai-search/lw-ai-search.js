@@ -1884,9 +1884,14 @@ export class LwAiSearch extends LitElement {
          than the widget accent. */
       background: var(--lw-ai-card-bg, #ffffff);
       color: var(--lw-ai-card-color, #1f2937);
-      /* A long question wraps inside its own chip rather than stretching
-         the row past the container. */
-      max-width: min(100%, 420px);
+      /* One line, clipped with an ellipsis rather than wrapping -- a
+         wrapped chip would grow taller than its row and break the
+         travelling rows' alignment. ch caps it at ~100 characters of
+         visible text before the ellipsis takes over. */
+      max-width: min(100%, 100ch);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
       padding: 9px 16px;
       font: inherit;
       font-family: var(--lw-ai-question-font, 'Inter', sans-serif);
